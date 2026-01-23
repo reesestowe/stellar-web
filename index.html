@@ -269,31 +269,6 @@
             text-shadow: 0 0 5px rgba(0, 255, 170, 0.6);
         }
 
-        /* Title */
-        .main-title {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 72px;
-            font-weight: bold;
-            background: linear-gradient(90deg, #00ffff, #ff00ff, #00ffff);
-            background-size: 200% 100%;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            animation: gradientFlow 3s linear infinite;
-            text-shadow: 0 0 40px rgba(0, 255, 255, 0.5);
-            pointer-events: none;
-            opacity: 0.3;
-            letter-spacing: 8px;
-        }
-
-        @keyframes gradientFlow {
-            0% { background-position: 0% 50%; }
-            100% { background-position: 200% 50%; }
-        }
-
         /* Scrollbar styling */
         .control-panel::-webkit-scrollbar {
             width: 8px;
@@ -315,8 +290,6 @@
     </style>
 </head>
 <body>
-    <div class="main-title">STELLAR WEB</div>
-
     <canvas id="network"></canvas>
 
     <button class="collapse-btn" id="collapseBtn">Hide Controls</button>
