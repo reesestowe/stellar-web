@@ -277,7 +277,7 @@
         <div class="stats-title">NETWORK STATS</div>
         <div class="stat-row">
             <span class="stat-label">Nodes:</span>
-            <span class="stat-value" id="stat-nodes">150</span>
+            <span class="stat-value" id="stat-nodes">100</span>
         </div>
         <div class="stat-row">
             <span class="stat-label">Edges:</span>
@@ -304,9 +304,9 @@
         <div class="control-group">
             <label>
                 Node Count
-                <span class="value-display" id="nodeCountValue">150</span>
+                <span class="value-display" id="nodeCountValue">100</span>
             </label>
-            <input type="range" id="nodeCount" min="50" max="300" value="150" step="10">
+            <input type="range" id="nodeCount" min="50" max="300" value="100" step="10">
         </div>
 
         <div class="control-group">
@@ -328,9 +328,9 @@
         <div class="control-group">
             <label>
                 Connectivity Radius
-                <span class="value-display" id="connectivityValue">150</span>
+                <span class="value-display" id="connectivityValue">120</span>
             </label>
-            <input type="range" id="connectivity" min="50" max="300" value="150" step="10">
+            <input type="range" id="connectivity" min="50" max="300" value="120" step="10">
         </div>
 
         <div class="control-group">
@@ -390,10 +390,10 @@
 
         // Configuration
         const config = {
-            nodeCount: 150,
+            nodeCount: 100,
             nodeSpeed: 1.0,
             nodeSize: 3,
-            connectivityRadius: 150,
+            connectivityRadius: 120,
             edgeThickness: 1.5,
             edgeOpacity: 0.5,
             pulseSpeed: 1.0,
@@ -517,20 +517,19 @@
                 // Opacity based on depth
                 const opacity = 0.3 + depthFactor * 0.7;
 
-                // Draw glow
-                const gradient = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, size * 3);
-                gradient.addColorStop(0, `hsla(${this.hue}, 100%, 50%, ${opacity * 0.6})`);
-                gradient.addColorStop(1, `hsla(${this.hue}, 100%, 50%, 0)`);
-                ctx.fillStyle = gradient;
-                ctx.beginPath();
-                ctx.arc(pos.x, pos.y, size * 3, 0, Math.PI * 2);
-                ctx.fill();
-
-                // Draw node
+                // Draw node (removed expensive glow for performance)
                 ctx.fillStyle = `hsla(${this.hue}, 100%, 60%, ${opacity})`;
                 ctx.beginPath();
                 ctx.arc(pos.x, pos.y, size, 0, Math.PI * 2);
                 ctx.fill();
+
+                // Optional: Simple glow for larger nodes only
+                if (size > 2) {
+                    ctx.fillStyle = `hsla(${this.hue}, 100%, 50%, ${opacity * 0.3})`;
+                    ctx.beginPath();
+                    ctx.arc(pos.x, pos.y, size * 2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             }
         }
 
@@ -570,20 +569,28 @@
             ctx.stroke();
         }
 
-        // Calculate and draw all connections
+        // Calculate and draw all connections (optimized)
         function drawConnections() {
             let edgeCount = 0;
+            const maxConnections = 5; // Limit connections per node for performance
 
             for (let i = 0; i < nodes.length; i++) {
-                for (let j = i + 1; j < nodes.length; j++) {
+                let connections = 0;
+
+                for (let j = i + 1; j < nodes.length && connections < maxConnections; j++) {
                     const dx = nodes[i].x - nodes[j].x;
                     const dy = nodes[i].y - nodes[j].y;
                     const dz = nodes[i].z - nodes[j].z;
-                    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-                    if (distance < config.connectivityRadius) {
+                    // Quick distance check without sqrt first
+                    const distSquared = dx * dx + dy * dy + dz * dz;
+                    const radiusSquared = config.connectivityRadius * config.connectivityRadius;
+
+                    if (distSquared < radiusSquared) {
+                        const distance = Math.sqrt(distSquared);
                         drawEdge(nodes[i], nodes[j], distance);
                         edgeCount++;
+                        connections++;
                     }
                 }
             }
@@ -593,8 +600,8 @@
 
         // Animation loop
         function animate() {
-            // Clear canvas
-            ctx.fillStyle = 'rgba(10, 0, 21, 0.1)';
+            // Clear canvas (solid clear is faster than translucent overlay)
+            ctx.fillStyle = '#0a0015';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             // Update all nodes
