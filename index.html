@@ -378,6 +378,13 @@
                 <div class="toggle-slider"></div>
             </div>
         </div>
+
+        <div class="toggle-container">
+            <span class="toggle-label">Beat Reactive</span>
+            <div class="toggle-switch" id="beatToggle">
+                <div class="toggle-slider"></div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -399,7 +406,8 @@
             pulseSpeed: 1.0,
             depthEffect: 1.5,
             mouseInteraction: false,
-            attractionMode: false
+            attractionMode: false,
+            beatReactive: false
         };
 
         // Mouse tracking
@@ -408,6 +416,16 @@
             y: canvas.height / 2,
             radius: 200
         };
+
+        // Audio context for beat detection
+        let audioContext = null;
+        let analyser = null;
+        let audioSource = null;
+        let audioData = null;
+        let beatIntensity = 0;
+
+        // Explosion particles
+        let explosionParticles = [];
 
         // FPS tracking
         let fps = 0;
@@ -533,6 +551,46 @@
             }
         }
 
+        // Explosion Particle class
+        class ExplosionParticle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 15;
+                this.vy = (Math.random() - 0.5) * 15;
+                this.life = 1.0;
+                this.decay = Math.random() * 0.02 + 0.01;
+                this.size = Math.random() * 4 + 2;
+                this.hue = Math.random() * 60 + 160; // Cyan to blue
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vx *= 0.98;
+                this.vy *= 0.98;
+                this.life -= this.decay;
+            }
+
+            draw() {
+                const alpha = this.life;
+                ctx.fillStyle = `hsla(${this.hue}, 100%, 60%, ${alpha})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size * this.life, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Glow
+                ctx.fillStyle = `hsla(${this.hue}, 100%, 50%, ${alpha * 0.3})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size * this.life * 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            isDead() {
+                return this.life <= 0;
+            }
+        }
+
         // Initialize nodes
         let nodes = [];
 
@@ -543,6 +601,56 @@
             }
         }
 
+        // Create explosion at position
+        function createExplosion(x, y, count = 30) {
+            for (let i = 0; i < count; i++) {
+                explosionParticles.push(new ExplosionParticle(x, y));
+            }
+        }
+
+        // Initialize audio for beat detection
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                audioData = new Uint8Array(analyser.frequencyBinCount);
+            }
+        }
+
+        // Start listening to microphone
+        async function startMicrophone() {
+            try {
+                initAudio();
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioSource = audioContext.createMediaStreamSource(stream);
+                audioSource.connect(analyser);
+                config.beatReactive = true;
+            } catch (err) {
+                console.log('Microphone access denied');
+            }
+        }
+
+        // Analyze audio for beat
+        function analyzeBeat() {
+            if (!analyser || !config.beatReactive) {
+                beatIntensity *= 0.95;
+                return;
+            }
+
+            analyser.getByteFrequencyData(audioData);
+
+            // Get bass frequencies (lower range)
+            let bassSum = 0;
+            for (let i = 0; i < 10; i++) {
+                bassSum += audioData[i];
+            }
+            const bassAvg = bassSum / 10 / 255;
+
+            // Smooth the beat intensity
+            beatIntensity = beatIntensity * 0.7 + bassAvg * 0.3;
+        }
+
         // Draw edge between two nodes
         function drawEdge(nodeA, nodeB, distance) {
             const posA = nodeA.getScreenPosition();
@@ -550,10 +658,16 @@
 
             // Calculate opacity based on distance
             const distanceFactor = 1 - (distance / config.connectivityRadius);
-            const opacity = config.edgeOpacity * distanceFactor;
+            let opacity = config.edgeOpacity * distanceFactor;
 
             // Calculate thickness based on distance
-            const thickness = config.edgeThickness * distanceFactor;
+            let thickness = config.edgeThickness * distanceFactor;
+
+            // Beat reactive edge boost
+            if (config.beatReactive && beatIntensity > 0.6) {
+                opacity *= (1 + beatIntensity);
+                thickness *= (1 + beatIntensity * 0.5);
+            }
 
             // Color gradient based on distance
             const hue1 = 180; // Cyan
@@ -600,18 +714,39 @@
 
         // Animation loop
         function animate() {
+            // Analyze audio for beat
+            analyzeBeat();
+
             // Clear canvas (solid clear is faster than translucent overlay)
             ctx.fillStyle = '#0a0015';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+            // Beat reactive background flash
+            if (beatIntensity > 0.5) {
+                ctx.fillStyle = `rgba(0, 255, 255, ${(beatIntensity - 0.5) * 0.1})`;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
             // Update all nodes
-            nodes.forEach(node => node.update());
+            nodes.forEach(node => {
+                node.update();
+
+                // Beat reactive pulse
+                if (config.beatReactive && beatIntensity > 0.6) {
+                    node.pulsePhase += beatIntensity * 0.5;
+                }
+            });
 
             // Draw connections (edges)
             const edgeCount = drawConnections();
 
-            // Draw nodes
+            // Draw nodes (with beat reactive size boost)
             nodes.forEach(node => node.draw());
+
+            // Update and draw explosion particles
+            explosionParticles.forEach(particle => particle.update());
+            explosionParticles = explosionParticles.filter(p => !p.isDead());
+            explosionParticles.forEach(particle => particle.draw());
 
             // Update statistics
             updateStats(edgeCount);
@@ -704,10 +839,32 @@
             btn.textContent = panel.classList.contains('collapsed') ? 'Show Controls' : 'Hide Controls';
         });
 
+        // Beat reactive toggle
+        document.getElementById('beatToggle').addEventListener('click', async (e) => {
+            if (!config.beatReactive) {
+                await startMicrophone();
+                e.currentTarget.classList.add('active');
+            } else {
+                config.beatReactive = false;
+                e.currentTarget.classList.remove('active');
+            }
+        });
+
+        // Click handler for explosions
+        canvas.addEventListener('click', (e) => {
+            createExplosion(e.clientX, e.clientY, 40);
+        });
+
         // Mouse tracking
         canvas.addEventListener('mousemove', (e) => {
             mouse.x = e.clientX;
             mouse.y = e.clientY;
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            createExplosion(touch.clientX, touch.clientY, 40);
         });
 
         canvas.addEventListener('touchmove', (e) => {
