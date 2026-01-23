@@ -478,7 +478,12 @@
 
         <div class="music-section">
             <div class="section-divider"></div>
-            <div class="section-title">♪ HOUSE MUSIC</div>
+            <div class="section-title">♪ MUSIC</div>
+
+            <select class="theme-select" id="musicGenre" style="margin-bottom: 10px;">
+                <option value="house">House</option>
+                <option value="wii">Wii Lounge</option>
+            </select>
 
             <button class="music-btn" id="musicBtn">▶ PLAY</button>
 
@@ -487,7 +492,7 @@
                     BPM
                     <span class="value-display" id="bpmValue">128</span>
                 </label>
-                <input type="range" id="bpm" min="100" max="160" value="128" step="1">
+                <input type="range" id="bpm" min="60" max="160" value="128" step="1">
             </div>
 
             <div class="control-group">
@@ -648,12 +653,14 @@
         let audioData = null;
         let beatIntensity = 0;
 
-        // House music generator state
+        // Music generator state
         let musicPlaying = false;
         let musicBPM = 128;
         let musicVolume = 0.5;
+        let musicGenre = 'house';
         let nextNoteTime = 0;
         let currentStep = 0;
+        let currentBar = 0;
         let schedulerTimer = null;
         let masterGain = null;
 
@@ -1048,8 +1055,172 @@
             [146.83, 174.61, 220]   // D (D3, F#3, A3)
         ];
 
-        // Schedule the next notes
-        function scheduleNote(stepTime, step) {
+        // ==================
+        // Wii Lounge Music
+        // ==================
+
+        // Wii-style muted piano note
+        function playWiiPiano(time, note, duration = 0.3) {
+            const osc = audioContext.createOscillator();
+            const osc2 = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            const filter = audioContext.createBiquadFilter();
+
+            // Main tone (slightly detuned for warmth)
+            osc.type = 'triangle';
+            osc.frequency.value = note;
+
+            // Second oscillator for richness
+            osc2.type = 'sine';
+            osc2.frequency.value = note * 2; // Octave up
+
+            // Muted piano filter
+            filter.type = 'lowpass';
+            filter.frequency.value = 800;
+            filter.Q.value = 1;
+
+            // Soft attack, quick decay (piano-like)
+            gain.gain.setValueAtTime(0, time);
+            gain.gain.linearRampToValueAtTime(0.15, time + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.08, time + 0.1);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + duration);
+
+            osc.connect(filter);
+            osc2.connect(gain);
+            gain.gain.value = 0.05; // Octave quieter
+            filter.connect(gain);
+            gain.connect(masterGain);
+
+            osc.start(time);
+            osc2.start(time);
+            osc.stop(time + duration);
+            osc2.stop(time + duration);
+        }
+
+        // Wii-style soft bass (mellow, round)
+        function playWiiBass(time, note) {
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            const filter = audioContext.createBiquadFilter();
+
+            osc.type = 'sine';
+            osc.frequency.value = note;
+
+            filter.type = 'lowpass';
+            filter.frequency.value = 300;
+
+            gain.gain.setValueAtTime(0, time);
+            gain.gain.linearRampToValueAtTime(0.35, time + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.2, time + 0.15);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.4);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(masterGain);
+
+            osc.start(time);
+            osc.stop(time + 0.4);
+        }
+
+        // Soft brush/shaker sound for Wii groove
+        function playWiiShaker(time) {
+            const bufferSize = audioContext.sampleRate * 0.08;
+            const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+            const data = buffer.getChannelData(0);
+
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+            }
+
+            const noise = audioContext.createBufferSource();
+            noise.buffer = buffer;
+
+            const filter = audioContext.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.value = 5000;
+            filter.Q.value = 0.5;
+
+            const gain = audioContext.createGain();
+            gain.gain.setValueAtTime(0.12, time);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.08);
+
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(masterGain);
+
+            noise.start(time);
+            noise.stop(time + 0.08);
+        }
+
+        // Soft rim click for Wii beat
+        function playWiiRim(time) {
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(800, time);
+            osc.frequency.exponentialRampToValueAtTime(400, time + 0.02);
+
+            gain.gain.setValueAtTime(0.2, time);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.05);
+
+            osc.connect(gain);
+            gain.connect(masterGain);
+
+            osc.start(time);
+            osc.stop(time + 0.05);
+        }
+
+        // Wii chord voicings (jazzy maj7 and min7 chords)
+        const wiiChordProgression = [
+            // Cmaj7 - Dm7 - Em7 - Fmaj7 (I - ii - iii - IV)
+            { bass: 65.41, chord: [261.63, 329.63, 392, 493.88] },     // Cmaj7
+            { bass: 73.42, chord: [293.66, 349.23, 440, 523.25] },     // Dm7
+            { bass: 82.41, chord: [329.63, 392, 493.88, 587.33] },     // Em7
+            { bass: 87.31, chord: [349.23, 440, 523.25, 659.25] },     // Fmaj7
+        ];
+
+        // Wii melody notes (pentatonic, playful)
+        const wiiMelodyNotes = [523.25, 587.33, 659.25, 783.99, 880, 1046.50]; // C5 to C6 pentatonic-ish
+
+        // Schedule Wii-style music
+        function scheduleWiiNote(stepTime, step) {
+            const eighthNote = (60 / musicBPM) / 2;
+            const chordIndex = currentBar % wiiChordProgression.length;
+            const currentChord = wiiChordProgression[chordIndex];
+
+            // Bass on beats 1 and 3 (steps 0, 8)
+            if (step === 0 || step === 8) {
+                playWiiBass(stepTime, currentChord.bass);
+            }
+
+            // Shaker on every 8th note for groove
+            if (step % 2 === 0) {
+                playWiiShaker(stepTime);
+            }
+
+            // Rim click on beats 2 and 4 (steps 4, 12)
+            if (step === 4 || step === 12) {
+                playWiiRim(stepTime);
+            }
+
+            // Piano chord stabs - syncopated jazzy rhythm
+            if (step === 0 || step === 3 || step === 6 || step === 10 || step === 14) {
+                // Play chord tones with slight timing spread
+                currentChord.chord.forEach((note, i) => {
+                    playWiiPiano(stepTime + i * 0.01, note, 0.25);
+                });
+            }
+
+            // Occasional melody notes (randomly, for that playful Wii feel)
+            if ((step === 2 || step === 7 || step === 11) && Math.random() > 0.4) {
+                const melodyNote = wiiMelodyNotes[Math.floor(Math.random() * wiiMelodyNotes.length)];
+                playWiiPiano(stepTime, melodyNote, 0.15);
+            }
+        }
+
+        // Schedule the next notes (house)
+        function scheduleHouseNote(stepTime, step) {
             const sixteenthNote = (60 / musicBPM) / 4;
 
             // Kick on 1, 5, 9, 13 (4-on-the-floor)
@@ -1086,9 +1257,17 @@
 
             // Schedule notes ahead of time for accuracy
             while (nextNoteTime < audioContext.currentTime + 0.1) {
-                scheduleNote(nextNoteTime, currentStep);
+                if (musicGenre === 'wii') {
+                    scheduleWiiNote(nextNoteTime, currentStep);
+                } else {
+                    scheduleHouseNote(nextNoteTime, currentStep);
+                }
                 nextNoteTime += sixteenthNote;
                 currentStep = (currentStep + 1) % 16;
+                // Track bars for chord progression
+                if (currentStep === 0) {
+                    currentBar++;
+                }
             }
         }
 
@@ -1372,6 +1551,22 @@
 
         // Music controls
         document.getElementById('musicBtn').addEventListener('click', toggleMusic);
+
+        document.getElementById('musicGenre').addEventListener('change', (e) => {
+            musicGenre = e.target.value;
+            // Set recommended BPM for each genre
+            if (musicGenre === 'wii') {
+                musicBPM = 95;
+                document.getElementById('bpm').value = 95;
+                document.getElementById('bpmValue').textContent = '95';
+            } else {
+                musicBPM = 128;
+                document.getElementById('bpm').value = 128;
+                document.getElementById('bpmValue').textContent = '128';
+            }
+            // Reset bar counter for chord progressions
+            currentBar = 0;
+        });
 
         document.getElementById('bpm').addEventListener('input', (e) => {
             musicBPM = parseInt(e.target.value);
