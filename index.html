@@ -202,6 +202,74 @@
             box-shadow: 0 0 25px rgba(0, 255, 255, 0.6);
         }
 
+        /* Theme Section */
+        .theme-section {
+            margin-top: 10px;
+        }
+
+        .theme-select {
+            width: 100%;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid #00ffff;
+            border-radius: 8px;
+            color: #fff;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            cursor: pointer;
+            outline: none;
+            margin-bottom: 15px;
+        }
+
+        .theme-select option {
+            background: #0a1428;
+            color: #fff;
+        }
+
+        .color-picker-group {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .color-picker-label {
+            color: #fff;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .color-picker-wrapper {
+            position: relative;
+            width: 40px;
+            height: 40px;
+        }
+
+        .color-picker {
+            width: 40px;
+            height: 40px;
+            border: 2px solid #00ffff;
+            border-radius: 8px;
+            cursor: pointer;
+            padding: 0;
+            background: none;
+        }
+
+        .color-picker::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+
+        .color-picker::-webkit-color-swatch {
+            border: none;
+            border-radius: 6px;
+        }
+
+        .color-picker::-moz-color-swatch {
+            border: none;
+            border-radius: 6px;
+        }
+
         /* Collapse Button */
         .collapse-btn {
             position: fixed;
@@ -430,6 +498,48 @@
                 <input type="range" id="volume" min="0" max="1" value="0.5" step="0.05">
             </div>
         </div>
+
+        <div class="theme-section">
+            <div class="section-divider"></div>
+            <div class="section-title">🎨 COLOR THEMES</div>
+
+            <select class="theme-select" id="themeSelect">
+                <option value="cyber">Cyber (Default)</option>
+                <option value="sunset">Sunset</option>
+                <option value="ocean">Ocean</option>
+                <option value="forest">Forest</option>
+                <option value="neonPink">Neon Pink</option>
+                <option value="galaxy">Galaxy</option>
+                <option value="fire">Fire</option>
+                <option value="ice">Ice</option>
+                <option value="custom">Custom</option>
+            </select>
+
+            <div class="color-picker-group">
+                <span class="color-picker-label">Background</span>
+                <input type="color" class="color-picker" id="bgColor" value="#0a0015">
+            </div>
+
+            <div class="color-picker-group">
+                <span class="color-picker-label">Node Color 1</span>
+                <input type="color" class="color-picker" id="nodeColor1" value="#00ffff">
+            </div>
+
+            <div class="color-picker-group">
+                <span class="color-picker-label">Node Color 2</span>
+                <input type="color" class="color-picker" id="nodeColor2" value="#ff00ff">
+            </div>
+
+            <div class="color-picker-group">
+                <span class="color-picker-label">Edge Color 1</span>
+                <input type="color" class="color-picker" id="edgeColor1" value="#00ffff">
+            </div>
+
+            <div class="color-picker-group">
+                <span class="color-picker-label">Edge Color 2</span>
+                <input type="color" class="color-picker" id="edgeColor2" value="#8000ff">
+            </div>
+        </div>
     </div>
 
     <script>
@@ -453,6 +563,75 @@
             mouseInteraction: false,
             attractionMode: false,
             beatReactive: false
+        };
+
+        // Color theme configuration
+        const colorConfig = {
+            background: '#0a0015',
+            nodeColor1: '#00ffff',
+            nodeColor2: '#ff00ff',
+            edgeColor1: '#00ffff',
+            edgeColor2: '#8000ff'
+        };
+
+        // Preset themes
+        const themes = {
+            cyber: {
+                background: '#0a0015',
+                nodeColor1: '#00ffff',
+                nodeColor2: '#ff00ff',
+                edgeColor1: '#00ffff',
+                edgeColor2: '#8000ff'
+            },
+            sunset: {
+                background: '#1a0a1e',
+                nodeColor1: '#ff6b35',
+                nodeColor2: '#f7c59f',
+                edgeColor1: '#ff6b35',
+                edgeColor2: '#ffcc00'
+            },
+            ocean: {
+                background: '#001219',
+                nodeColor1: '#0077b6',
+                nodeColor2: '#00b4d8',
+                edgeColor1: '#48cae4',
+                edgeColor2: '#90e0ef'
+            },
+            forest: {
+                background: '#0d1f0d',
+                nodeColor1: '#2d6a4f',
+                nodeColor2: '#95d5b2',
+                edgeColor1: '#40916c',
+                edgeColor2: '#74c69d'
+            },
+            neonPink: {
+                background: '#0f0014',
+                nodeColor1: '#ff00ff',
+                nodeColor2: '#ff69b4',
+                edgeColor1: '#ff1493',
+                edgeColor2: '#ff69b4'
+            },
+            galaxy: {
+                background: '#0b0014',
+                nodeColor1: '#9d4edd',
+                nodeColor2: '#e0aaff',
+                edgeColor1: '#7b2cbf',
+                edgeColor2: '#c77dff'
+            },
+            fire: {
+                background: '#1a0500',
+                nodeColor1: '#ff4500',
+                nodeColor2: '#ffd700',
+                edgeColor1: '#ff6347',
+                edgeColor2: '#ff8c00'
+            },
+            ice: {
+                background: '#001020',
+                nodeColor1: '#a5f3fc',
+                nodeColor2: '#ffffff',
+                edgeColor1: '#67e8f9',
+                edgeColor2: '#e0f2fe'
+            }
         };
 
         // Mouse tracking
@@ -486,6 +665,27 @@
         let lastTime = performance.now();
         let frameCount = 0;
 
+        // Helper function to convert hex to RGB
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : { r: 0, g: 255, b: 255 };
+        }
+
+        // Interpolate between two colors
+        function lerpColor(color1, color2, t) {
+            const c1 = hexToRgb(color1);
+            const c2 = hexToRgb(color2);
+            return {
+                r: Math.round(c1.r + (c2.r - c1.r) * t),
+                g: Math.round(c1.g + (c2.g - c1.g) * t),
+                b: Math.round(c1.b + (c2.b - c1.b) * t)
+            };
+        }
+
         // Node class
         class Node {
             constructor() {
@@ -504,8 +704,8 @@
                 this.vy = (Math.random() - 0.5) * 2;
                 this.vz = (Math.random() - 0.5) * 2;
 
-                // Color
-                this.hue = Math.random() * 60 + 160; // Cyan to blue range
+                // Color blend factor (0 = color1, 1 = color2)
+                this.colorBlend = Math.random();
             }
 
             update() {
@@ -589,15 +789,18 @@
                 // Opacity based on depth
                 const opacity = 0.3 + depthFactor * 0.7;
 
+                // Get interpolated color from theme
+                const color = lerpColor(colorConfig.nodeColor1, colorConfig.nodeColor2, this.colorBlend);
+
                 // Draw node (removed expensive glow for performance)
-                ctx.fillStyle = `hsla(${this.hue}, 100%, 60%, ${opacity})`;
+                ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${opacity})`;
                 ctx.beginPath();
                 ctx.arc(pos.x, pos.y, size, 0, Math.PI * 2);
                 ctx.fill();
 
                 // Optional: Simple glow for larger nodes only
                 if (size > 2) {
-                    ctx.fillStyle = `hsla(${this.hue}, 100%, 50%, ${opacity * 0.3})`;
+                    ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${opacity * 0.3})`;
                     ctx.beginPath();
                     ctx.arc(pos.x, pos.y, size * 2, 0, Math.PI * 2);
                     ctx.fill();
@@ -615,7 +818,7 @@
                 this.life = 1.0;
                 this.decay = Math.random() * 0.02 + 0.01;
                 this.size = Math.random() * 4 + 2;
-                this.hue = Math.random() * 60 + 160; // Cyan to blue
+                this.colorBlend = Math.random();
             }
 
             update() {
@@ -628,13 +831,15 @@
 
             draw() {
                 const alpha = this.life;
-                ctx.fillStyle = `hsla(${this.hue}, 100%, 60%, ${alpha})`;
+                const color = lerpColor(colorConfig.nodeColor1, colorConfig.nodeColor2, this.colorBlend);
+
+                ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.size * this.life, 0, Math.PI * 2);
                 ctx.fill();
 
                 // Glow
-                ctx.fillStyle = `hsla(${this.hue}, 100%, 50%, ${alpha * 0.3})`;
+                ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha * 0.3})`;
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.size * this.life * 2, 0, Math.PI * 2);
                 ctx.fill();
@@ -984,13 +1189,12 @@
                 thickness *= (1 + beatIntensity * 0.5);
             }
 
-            // Color gradient based on distance
-            const hue1 = 180; // Cyan
-            const hue2 = 280; // Purple
-            const hue = hue1 + (hue2 - hue1) * (distance / config.connectivityRadius);
+            // Color gradient based on distance using theme colors
+            const t = distance / config.connectivityRadius;
+            const color = lerpColor(colorConfig.edgeColor1, colorConfig.edgeColor2, t);
 
             // Draw line
-            ctx.strokeStyle = `hsla(${hue}, 100%, 50%, ${opacity})`;
+            ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${opacity})`;
             ctx.lineWidth = thickness;
             ctx.beginPath();
             ctx.moveTo(posA.x, posA.y);
@@ -1032,13 +1236,14 @@
             // Analyze audio for beat
             analyzeBeat();
 
-            // Clear canvas (solid clear is faster than translucent overlay)
-            ctx.fillStyle = '#0a0015';
+            // Clear canvas with theme background color
+            ctx.fillStyle = colorConfig.background;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Beat reactive background flash
+            // Beat reactive background flash using theme node color
             if (beatIntensity > 0.5) {
-                ctx.fillStyle = `rgba(0, 255, 255, ${(beatIntensity - 0.5) * 0.1})`;
+                const flashColor = hexToRgb(colorConfig.nodeColor1);
+                ctx.fillStyle = `rgba(${flashColor.r}, ${flashColor.g}, ${flashColor.b}, ${(beatIntensity - 0.5) * 0.1})`;
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
             }
 
@@ -1179,6 +1384,64 @@
             if (masterGain) {
                 masterGain.gain.value = musicVolume;
             }
+        });
+
+        // Theme controls
+        function applyTheme(themeName) {
+            if (themes[themeName]) {
+                const theme = themes[themeName];
+                colorConfig.background = theme.background;
+                colorConfig.nodeColor1 = theme.nodeColor1;
+                colorConfig.nodeColor2 = theme.nodeColor2;
+                colorConfig.edgeColor1 = theme.edgeColor1;
+                colorConfig.edgeColor2 = theme.edgeColor2;
+
+                // Update color pickers to reflect theme
+                document.getElementById('bgColor').value = theme.background;
+                document.getElementById('nodeColor1').value = theme.nodeColor1;
+                document.getElementById('nodeColor2').value = theme.nodeColor2;
+                document.getElementById('edgeColor1').value = theme.edgeColor1;
+                document.getElementById('edgeColor2').value = theme.edgeColor2;
+
+                // Update canvas and body background
+                canvas.style.background = theme.background;
+                document.body.style.background = theme.background;
+            }
+        }
+
+        document.getElementById('themeSelect').addEventListener('change', (e) => {
+            const themeName = e.target.value;
+            if (themeName !== 'custom') {
+                applyTheme(themeName);
+            }
+        });
+
+        // Color picker handlers
+        document.getElementById('bgColor').addEventListener('input', (e) => {
+            colorConfig.background = e.target.value;
+            canvas.style.background = e.target.value;
+            document.body.style.background = e.target.value;
+            document.getElementById('themeSelect').value = 'custom';
+        });
+
+        document.getElementById('nodeColor1').addEventListener('input', (e) => {
+            colorConfig.nodeColor1 = e.target.value;
+            document.getElementById('themeSelect').value = 'custom';
+        });
+
+        document.getElementById('nodeColor2').addEventListener('input', (e) => {
+            colorConfig.nodeColor2 = e.target.value;
+            document.getElementById('themeSelect').value = 'custom';
+        });
+
+        document.getElementById('edgeColor1').addEventListener('input', (e) => {
+            colorConfig.edgeColor1 = e.target.value;
+            document.getElementById('themeSelect').value = 'custom';
+        });
+
+        document.getElementById('edgeColor2').addEventListener('input', (e) => {
+            colorConfig.edgeColor2 = e.target.value;
+            document.getElementById('themeSelect').value = 'custom';
         });
 
         // Click handler for explosions
