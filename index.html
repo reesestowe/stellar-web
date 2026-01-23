@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stellar Web - Particle Network Visualization</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            background: #0a0015;
+            color: #fff;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100vh;
+            background: #0a0015;
+        }
+
+        /* Control Panel */
+        .control-panel {
+            position: fixed;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(10, 20, 40, 0.95);
+            backdrop-filter: blur(10px);
+            border: 2px solid #00ffff;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.3);
+            max-height: 90vh;
+            overflow-y: auto;
+            z-index: 1000;
+            transition: transform 0.3s ease;
+        }
+
+        .control-panel.collapsed {
+            transform: translateY(-50%) translateX(calc(100% + 20px));
+        }
+
+        .panel-header {
+            font-size: 18px;
+            font-weight: bold;
+            color: #00ffff;
+            text-align: center;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+            letter-spacing: 2px;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-group label {
+            display: block;
+            color: #fff;
+            font-size: 13px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .control-group .value-display {
+            color: #00ffaa;
+            font-weight: bold;
+            float: right;
+            text-shadow: 0 0 5px rgba(0, 255, 170, 0.6);
+        }
+
+        .control-group input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            outline: none;
+            -webkit-appearance: none;
+            cursor: pointer;
+        }
+
+        .control-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00ffff, #ff00ff);
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+        }
+
+        .control-group input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00ffff, #ff00ff);
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+        }
+
+        /* Toggle Switch */
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 24px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .toggle-switch.active {
+            background: linear-gradient(135deg, #00ffff, #ff00ff);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.6);
+        }
+
+        .toggle-slider {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background: #fff;
+            border-radius: 50%;
+            transition: transform 0.3s;
+        }
+
+        .toggle-switch.active .toggle-slider {
+            transform: translateX(26px);
+        }
+
+        .toggle-label {
+            color: #fff;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Collapse Button */
+        .collapse-btn {
+            position: fixed;
+            right: 20px;
+            top: 20px;
+            background: rgba(10, 20, 40, 0.95);
+            border: 2px solid #00ffff;
+            color: #00ffff;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 1001;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        .collapse-btn:hover {
+            background: rgba(0, 255, 255, 0.2);
+            box-shadow: 0 0 25px rgba(0, 255, 255, 0.6);
+        }
+
+        /* Statistics Panel */
+        .stats-panel {
+            position: fixed;
+            left: 20px;
+            top: 20px;
+            background: rgba(10, 20, 40, 0.95);
+            backdrop-filter: blur(10px);
+            border: 2px solid #00ff41;
+            border-radius: 10px;
+            padding: 15px;
+            min-width: 220px;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
+            z-index: 1000;
+            font-family: 'Courier New', monospace;
+        }
+
+        .stats-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #00ff41;
+            margin-bottom: 12px;
+            text-align: center;
+            letter-spacing: 2px;
+            text-shadow: 0 0 8px rgba(0, 255, 65, 0.8);
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+
+        .stat-label {
+            color: #aaa;
+        }
+
+        .stat-value {
+            color: #00ffaa;
+            font-weight: bold;
+            text-shadow: 0 0 5px rgba(0, 255, 170, 0.6);
+        }
+
+        /* Title */
+        .main-title {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 72px;
+            font-weight: bold;
+            background: linear-gradient(90deg, #00ffff, #ff00ff, #00ffff);
+            background-size: 200% 100%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradientFlow 3s linear infinite;
+            text-shadow: 0 0 40px rgba(0, 255, 255, 0.5);
+            pointer-events: none;
+            opacity: 0.3;
+            letter-spacing: 8px;
+        }
+
+        @keyframes gradientFlow {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 200% 50%; }
+        }
+
+        /* Scrollbar styling */
+        .control-panel::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .control-panel::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 5px;
+        }
+
+        .control-panel::-webkit-scrollbar-thumb {
+            background: rgba(0, 255, 255, 0.5);
+            border-radius: 5px;
+        }
+
+        .control-panel::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 255, 255, 0.8);
+        }
+    </style>
+</head>
+<body>
+    <div class="main-title">STELLAR WEB</div>
+
+    <canvas id="network"></canvas>
+
+    <button class="collapse-btn" id="collapseBtn">Hide Controls</button>
+
+    <!-- Statistics Panel -->
+    <div class="stats-panel">
+        <div class="stats-title">NETWORK STATS</div>
+        <div class="stat-row">
+            <span class="stat-label">Nodes:</span>
+            <span class="stat-value" id="stat-nodes">150</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Edges:</span>
+            <span class="stat-value" id="stat-edges">0</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Avg Connections:</span>
+            <span class="stat-value" id="stat-avg">0.0</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Density:</span>
+            <span class="stat-value" id="stat-density">0.0%</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">FPS:</span>
+            <span class="stat-value" id="stat-fps">60</span>
+        </div>
+    </div>
+
+    <!-- Control Panel -->
+    <div class="control-panel" id="controlPanel">
+        <div class="panel-header">⚙ NETWORK CONTROLS</div>
+
+        <div class="control-group">
+            <label>
+                Node Count
+                <span class="value-display" id="nodeCountValue">150</span>
+            </label>
+            <input type="range" id="nodeCount" min="50" max="300" value="150" step="10">
+        </div>
+
+        <div class="control-group">
+            <label>
+                Node Speed
+                <span class="value-display" id="nodeSpeedValue">1.0</span>
+            </label>
+            <input type="range" id="nodeSpeed" min="0.1" max="5" value="1" step="0.1">
+        </div>
+
+        <div class="control-group">
+            <label>
+                Node Size
+                <span class="value-display" id="nodeSizeValue">3</span>
+            </label>
+            <input type="range" id="nodeSize" min="1" max="10" value="3" step="0.5">
+        </div>
+
+        <div class="control-group">
+            <label>
+                Connectivity Radius
+                <span class="value-display" id="connectivityValue">150</span>
+            </label>
+            <input type="range" id="connectivity" min="50" max="300" value="150" step="10">
+        </div>
+
+        <div class="control-group">
+            <label>
+                Edge Thickness
+                <span class="value-display" id="edgeThicknessValue">1.5</span>
+            </label>
+            <input type="range" id="edgeThickness" min="0.5" max="5" value="1.5" step="0.1">
+        </div>
+
+        <div class="control-group">
+            <label>
+                Edge Opacity
+                <span class="value-display" id="edgeOpacityValue">0.5</span>
+            </label>
+            <input type="range" id="edgeOpacity" min="0.1" max="1" value="0.5" step="0.05">
+        </div>
+
+        <div class="control-group">
+            <label>
+                Pulse Speed
+                <span class="value-display" id="pulseSpeedValue">1.0</span>
+            </label>
+            <input type="range" id="pulseSpeed" min="0" max="5" value="1" step="0.1">
+        </div>
+
+        <div class="control-group">
+            <label>
+                Depth Effect
+                <span class="value-display" id="depthEffectValue">1.5</span>
+            </label>
+            <input type="range" id="depthEffect" min="0" max="3" value="1.5" step="0.1">
+        </div>
+
+        <div class="toggle-container">
+            <span class="toggle-label">Mouse Interaction</span>
+            <div class="toggle-switch" id="mouseToggle">
+                <div class="toggle-slider"></div>
+            </div>
+        </div>
+
+        <div class="toggle-container">
+            <span class="toggle-label">Attraction Mode</span>
+            <div class="toggle-switch" id="attractionToggle">
+                <div class="toggle-slider"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('network');
+        const ctx = canvas.getContext('2d');
+
+        // Set canvas size
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // Configuration
+        const config = {
+            nodeCount: 150,
+            nodeSpeed: 1.0,
+            nodeSize: 3,
+            connectivityRadius: 150,
+            edgeThickness: 1.5,
+            edgeOpacity: 0.5,
+            pulseSpeed: 1.0,
+            depthEffect: 1.5,
+            mouseInteraction: false,
+            attractionMode: false
+        };
+
+        // Mouse tracking
+        let mouse = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            radius: 200
+        };
+
+        // FPS tracking
+        let fps = 0;
+        let lastTime = performance.now();
+        let frameCount = 0;
+
+        // Node class
+        class Node {
+            constructor() {
+                this.reset();
+                this.pulsePhase = Math.random() * Math.PI * 2;
+            }
+
+            reset() {
+                // 3D position
+                this.x = Math.random() * canvas.width - canvas.width / 2;
+                this.y = Math.random() * canvas.height - canvas.height / 2;
+                this.z = Math.random() * 1000 - 500;
+
+                // Velocity
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+                this.vz = (Math.random() - 0.5) * 2;
+
+                // Color
+                this.hue = Math.random() * 60 + 160; // Cyan to blue range
+            }
+
+            update() {
+                // Apply velocity with speed multiplier
+                this.x += this.vx * config.nodeSpeed;
+                this.y += this.vy * config.nodeSpeed;
+                this.z += this.vz * config.nodeSpeed;
+
+                // Mouse interaction
+                if (config.mouseInteraction) {
+                    const screenPos = this.getScreenPosition();
+                    const dx = screenPos.x - mouse.x;
+                    const dy = screenPos.y - mouse.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < mouse.radius) {
+                        const force = (1 - distance / mouse.radius) * 0.5;
+                        const angle = Math.atan2(dy, dx);
+                        const direction = config.attractionMode ? -1 : 1;
+
+                        this.vx += Math.cos(angle) * force * direction;
+                        this.vy += Math.sin(angle) * force * direction;
+                    }
+                }
+
+                // Damping
+                this.vx *= 0.98;
+                this.vy *= 0.98;
+                this.vz *= 0.98;
+
+                // Keep minimum velocity
+                const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy + this.vz * this.vz);
+                if (speed < 0.5) {
+                    this.vx += (Math.random() - 0.5) * 0.1;
+                    this.vy += (Math.random() - 0.5) * 0.1;
+                    this.vz += (Math.random() - 0.5) * 0.1;
+                }
+
+                // Wrap around boundaries
+                const halfWidth = canvas.width / 2;
+                const halfHeight = canvas.height / 2;
+
+                if (this.x < -halfWidth) this.x = halfWidth;
+                if (this.x > halfWidth) this.x = -halfWidth;
+                if (this.y < -halfHeight) this.y = halfHeight;
+                if (this.y > halfHeight) this.y = -halfHeight;
+                if (this.z < -500) this.z = 500;
+                if (this.z > 500) this.z = -500;
+
+                // Update pulse phase
+                this.pulsePhase += 0.05 * config.pulseSpeed;
+            }
+
+            getScreenPosition() {
+                // 3D to 2D perspective projection
+                const perspective = 500;
+                const scale = perspective / (perspective + this.z);
+                const screenX = (this.x * scale) + canvas.width / 2;
+                const screenY = (this.y * scale) + canvas.height / 2;
+
+                return { x: screenX, y: screenY, scale: scale };
+            }
+
+            getDepthFactor() {
+                // Calculate depth factor (0 = far, 1 = close)
+                return (this.z + 500) / 1000;
+            }
+
+            draw() {
+                const pos = this.getScreenPosition();
+                const depthFactor = this.getDepthFactor();
+
+                // Calculate size based on depth
+                const baseSize = config.nodeSize * pos.scale;
+                const depthSize = baseSize * (0.5 + depthFactor * 0.5 * config.depthEffect);
+
+                // Pulsing effect
+                const pulse = Math.sin(this.pulsePhase) * 0.3 + 1;
+                const size = depthSize * pulse;
+
+                // Opacity based on depth
+                const opacity = 0.3 + depthFactor * 0.7;
+
+                // Draw glow
+                const gradient = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, size * 3);
+                gradient.addColorStop(0, `hsla(${this.hue}, 100%, 50%, ${opacity * 0.6})`);
+                gradient.addColorStop(1, `hsla(${this.hue}, 100%, 50%, 0)`);
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, size * 3, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw node
+                ctx.fillStyle = `hsla(${this.hue}, 100%, 60%, ${opacity})`;
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Initialize nodes
+        let nodes = [];
+
+        function initNodes() {
+            nodes = [];
+            for (let i = 0; i < config.nodeCount; i++) {
+                nodes.push(new Node());
+            }
+        }
+
+        // Draw edge between two nodes
+        function drawEdge(nodeA, nodeB, distance) {
+            const posA = nodeA.getScreenPosition();
+            const posB = nodeB.getScreenPosition();
+
+            // Calculate opacity based on distance
+            const distanceFactor = 1 - (distance / config.connectivityRadius);
+            const opacity = config.edgeOpacity * distanceFactor;
+
+            // Calculate thickness based on distance
+            const thickness = config.edgeThickness * distanceFactor;
+
+            // Color gradient based on distance
+            const hue1 = 180; // Cyan
+            const hue2 = 280; // Purple
+            const hue = hue1 + (hue2 - hue1) * (distance / config.connectivityRadius);
+
+            // Draw line
+            ctx.strokeStyle = `hsla(${hue}, 100%, 50%, ${opacity})`;
+            ctx.lineWidth = thickness;
+            ctx.beginPath();
+            ctx.moveTo(posA.x, posA.y);
+            ctx.lineTo(posB.x, posB.y);
+            ctx.stroke();
+        }
+
+        // Calculate and draw all connections
+        function drawConnections() {
+            let edgeCount = 0;
+
+            for (let i = 0; i < nodes.length; i++) {
+                for (let j = i + 1; j < nodes.length; j++) {
+                    const dx = nodes[i].x - nodes[j].x;
+                    const dy = nodes[i].y - nodes[j].y;
+                    const dz = nodes[i].z - nodes[j].z;
+                    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+                    if (distance < config.connectivityRadius) {
+                        drawEdge(nodes[i], nodes[j], distance);
+                        edgeCount++;
+                    }
+                }
+            }
+
+            return edgeCount;
+        }
+
+        // Animation loop
+        function animate() {
+            // Clear canvas
+            ctx.fillStyle = 'rgba(10, 0, 21, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Update all nodes
+            nodes.forEach(node => node.update());
+
+            // Draw connections (edges)
+            const edgeCount = drawConnections();
+
+            // Draw nodes
+            nodes.forEach(node => node.draw());
+
+            // Update statistics
+            updateStats(edgeCount);
+
+            // Calculate FPS
+            frameCount++;
+            const currentTime = performance.now();
+            if (currentTime - lastTime >= 1000) {
+                fps = frameCount;
+                frameCount = 0;
+                lastTime = currentTime;
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // Update statistics panel
+        function updateStats(edgeCount) {
+            document.getElementById('stat-nodes').textContent = config.nodeCount;
+            document.getElementById('stat-edges').textContent = edgeCount;
+
+            const avgConnections = config.nodeCount > 0 ? (edgeCount * 2 / config.nodeCount).toFixed(1) : 0;
+            document.getElementById('stat-avg').textContent = avgConnections;
+
+            const maxPossibleEdges = (config.nodeCount * (config.nodeCount - 1)) / 2;
+            const density = maxPossibleEdges > 0 ? ((edgeCount / maxPossibleEdges) * 100).toFixed(1) : 0;
+            document.getElementById('stat-density').textContent = density + '%';
+
+            document.getElementById('stat-fps').textContent = fps;
+        }
+
+        // Control handlers
+        document.getElementById('nodeCount').addEventListener('input', (e) => {
+            config.nodeCount = parseInt(e.target.value);
+            document.getElementById('nodeCountValue').textContent = config.nodeCount;
+            initNodes();
+        });
+
+        document.getElementById('nodeSpeed').addEventListener('input', (e) => {
+            config.nodeSpeed = parseFloat(e.target.value);
+            document.getElementById('nodeSpeedValue').textContent = config.nodeSpeed.toFixed(1);
+        });
+
+        document.getElementById('nodeSize').addEventListener('input', (e) => {
+            config.nodeSize = parseFloat(e.target.value);
+            document.getElementById('nodeSizeValue').textContent = config.nodeSize;
+        });
+
+        document.getElementById('connectivity').addEventListener('input', (e) => {
+            config.connectivityRadius = parseInt(e.target.value);
+            document.getElementById('connectivityValue').textContent = config.connectivityRadius;
+        });
+
+        document.getElementById('edgeThickness').addEventListener('input', (e) => {
+            config.edgeThickness = parseFloat(e.target.value);
+            document.getElementById('edgeThicknessValue').textContent = config.edgeThickness.toFixed(1);
+        });
+
+        document.getElementById('edgeOpacity').addEventListener('input', (e) => {
+            config.edgeOpacity = parseFloat(e.target.value);
+            document.getElementById('edgeOpacityValue').textContent = config.edgeOpacity.toFixed(2);
+        });
+
+        document.getElementById('pulseSpeed').addEventListener('input', (e) => {
+            config.pulseSpeed = parseFloat(e.target.value);
+            document.getElementById('pulseSpeedValue').textContent = config.pulseSpeed.toFixed(1);
+        });
+
+        document.getElementById('depthEffect').addEventListener('input', (e) => {
+            config.depthEffect = parseFloat(e.target.value);
+            document.getElementById('depthEffectValue').textContent = config.depthEffect.toFixed(1);
+        });
+
+        // Toggle handlers
+        document.getElementById('mouseToggle').addEventListener('click', (e) => {
+            config.mouseInteraction = !config.mouseInteraction;
+            e.currentTarget.classList.toggle('active');
+        });
+
+        document.getElementById('attractionToggle').addEventListener('click', (e) => {
+            config.attractionMode = !config.attractionMode;
+            e.currentTarget.classList.toggle('active');
+        });
+
+        // Collapse button handler
+        document.getElementById('collapseBtn').addEventListener('click', () => {
+            const panel = document.getElementById('controlPanel');
+            const btn = document.getElementById('collapseBtn');
+            panel.classList.toggle('collapsed');
+            btn.textContent = panel.classList.contains('collapsed') ? 'Show Controls' : 'Hide Controls';
+        });
+
+        // Mouse tracking
+        canvas.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            mouse.x = touch.clientX;
+            mouse.y = touch.clientY;
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        // Initialize and start
+        initNodes();
+        animate();
+    </script>
+</body>
+</html>
