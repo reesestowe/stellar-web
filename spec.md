@@ -47,6 +47,30 @@ A futuristic particle network visualization system that creates an interconnecte
    - Current FPS counter
    - Real-time updates
 
+6. **Interactive Click Effects**
+   - Particle explosions on click/touch
+   - 40 explosion particles per click with physics
+   - Life decay and glow effects
+
+7. **Beat-Reactive Mode**
+   - Web Audio API microphone integration
+   - FFT analysis for bass frequency detection
+   - Nodes pulse faster with beats
+   - Edges glow brighter/thicker on strong beats
+   - Background flash effects
+
+8. **Procedural House Music Generator**
+   - Built-in Web Audio API synthesizer
+   - 4-on-the-floor kick drum pattern
+   - Hi-hat patterns (closed and open)
+   - Snare/clap on beats 2 and 4
+   - Bass line with E minor pentatonic notes
+   - Synth chord stabs (Em, D, C progression)
+   - BPM control (100-160 BPM)
+   - Volume control
+   - Auto-enables beat-reactive mode when playing
+   - No external audio files needed (no copyright issues)
+
 ### User Experience
 
 - Controls positioned outside animation area (side panel or bottom bar)
@@ -222,23 +246,27 @@ stellar-web/
 ### Main Task Checklist
 
 - [x] Create spec.md document
-- [ ] Implement particle system with nodes in 3D space
-- [ ] Add edge connections based on connectivity radius
-- [ ] Implement 3D to 2D perspective projection
-- [ ] Create sliders for all core parameters:
-  - [ ] Node Count
-  - [ ] Node Speed
-  - [ ] Node Size
-  - [ ] Connectivity Radius
-  - [ ] Edge Thickness
-  - [ ] Edge Opacity
-  - [ ] Pulse Speed
-  - [ ] Depth Effect
-- [ ] Position controls outside animation area
-- [ ] Add color gradients based on edge length/velocity
-- [ ] Implement mouse interaction (attraction/repulsion)
-- [ ] Add pulsing effects to nodes or edges
-- [ ] Create depth effects with size/opacity by z-position
+- [x] Implement particle system with nodes in 3D space
+- [x] Add edge connections based on connectivity radius
+- [x] Implement 3D to 2D perspective projection
+- [x] Create sliders for all core parameters:
+  - [x] Node Count
+  - [x] Node Speed
+  - [x] Node Size
+  - [x] Connectivity Radius
+  - [x] Edge Thickness
+  - [x] Edge Opacity
+  - [x] Pulse Speed
+  - [x] Depth Effect
+- [x] Position controls outside animation area
+- [x] Add color gradients based on edge length/velocity
+- [x] Implement mouse interaction (attraction/repulsion)
+- [x] Add pulsing effects to nodes or edges
+- [x] Create depth effects with size/opacity by z-position
+- [x] Optimize performance (connection limiting, squared distance checks)
+- [x] Add particle explosions on click
+- [x] Add beat-reactive mode with microphone input
+- [x] Add procedural house music generator with Web Audio API
 
 ### Ideas to Explore
 
