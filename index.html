@@ -385,6 +385,14 @@
             <span class="stat-label">FPS:</span>
             <span class="stat-value" id="stat-fps">60</span>
         </div>
+        <div class="stat-row snake-stat" id="snakeScoreRow" style="display: none;">
+            <span class="stat-label">Snake Score:</span>
+            <span class="stat-value" id="stat-snake-score">0</span>
+        </div>
+        <div class="stat-row snake-stat" id="snakeHighScoreRow" style="display: none;">
+            <span class="stat-label">High Score:</span>
+            <span class="stat-value" id="stat-snake-highscore">0</span>
+        </div>
     </div>
 
     <!-- Control Panel -->
@@ -474,6 +482,32 @@
             <div class="toggle-switch" id="beatToggle">
                 <div class="toggle-slider"></div>
             </div>
+        </div>
+
+        <div class="game-section">
+            <div class="section-divider"></div>
+            <div class="section-title">🎮 SNAKE MODE</div>
+
+            <div class="toggle-container">
+                <span class="toggle-label">Enable Snake</span>
+                <div class="toggle-switch" id="snakeToggle">
+                    <div class="toggle-slider"></div>
+                </div>
+            </div>
+
+            <div class="snake-instructions" id="snakeInstructions" style="display: none; font-size: 11px; color: #aaa; margin-bottom: 10px; line-height: 1.4;">
+                Use <span style="color: #00ffff;">Arrow Keys</span> or <span style="color: #00ffff;">WASD</span> to control the snake. Collect glowing food to grow!
+            </div>
+
+            <div class="control-group" id="snakeSpeedControl" style="display: none;">
+                <label>
+                    Snake Speed
+                    <span class="value-display" id="snakeSpeedValue">8</span>
+                </label>
+                <input type="range" id="snakeSpeedSlider" min="3" max="20" value="8" step="1">
+            </div>
+
+            <button class="music-btn" id="snakeRestartBtn" style="display: none; background: linear-gradient(135deg, rgba(0, 255, 100, 0.3), rgba(0, 255, 255, 0.3)); border-color: #00ff64;">↻ RESTART</button>
         </div>
 
         <div class="music-section">
@@ -671,6 +705,20 @@
         let fps = 0;
         let lastTime = performance.now();
         let frameCount = 0;
+
+        // Snake mode state
+        let snakeMode = false;
+        let snake = [];
+        let snakeDirection = { x: 1, y: 0 };
+        let snakeNextDirection = { x: 1, y: 0 };
+        let snakeSpeed = 8; // Moves per second
+        let snakeLastMove = 0;
+        let snakeFood = null;
+        let snakeScore = 0;
+        let snakeGameOver = false;
+        let snakeHighScore = 0;
+        const snakeSegmentSize = 15;
+        const snakeGridSize = 20;
 
         // Helper function to convert hex to RGB
         function hexToRgb(hex) {
@@ -1442,6 +1490,12 @@
             // Draw nodes (with beat reactive size boost)
             nodes.forEach(node => node.draw());
 
+            // Snake mode update and draw
+            if (snakeMode) {
+                updateSnake();
+                drawSnake();
+            }
+
             // Update and draw explosion particles
             explosionParticles.forEach(particle => particle.update());
             explosionParticles = explosionParticles.filter(p => !p.isDead());
@@ -1475,6 +1529,280 @@
             document.getElementById('stat-density').textContent = density + '%';
 
             document.getElementById('stat-fps').textContent = fps;
+        }
+
+        // Snake Mode Functions
+        // ====================
+
+        function initSnake() {
+            // Start snake in center of canvas
+            const startX = Math.floor(canvas.width / 2 / snakeGridSize) * snakeGridSize;
+            const startY = Math.floor(canvas.height / 2 / snakeGridSize) * snakeGridSize;
+
+            snake = [
+                { x: startX, y: startY },
+                { x: startX - snakeGridSize, y: startY },
+                { x: startX - snakeGridSize * 2, y: startY }
+            ];
+
+            snakeDirection = { x: 1, y: 0 };
+            snakeNextDirection = { x: 1, y: 0 };
+            snakeScore = 0;
+            snakeGameOver = false;
+            snakeLastMove = performance.now();
+
+            spawnFood();
+            updateSnakeScore();
+        }
+
+        function spawnFood() {
+            // Spawn food at random grid position, avoiding snake body
+            let validPosition = false;
+            let attempts = 0;
+
+            while (!validPosition && attempts < 100) {
+                const gridCols = Math.floor(canvas.width / snakeGridSize);
+                const gridRows = Math.floor(canvas.height / snakeGridSize);
+
+                snakeFood = {
+                    x: Math.floor(Math.random() * (gridCols - 2) + 1) * snakeGridSize,
+                    y: Math.floor(Math.random() * (gridRows - 2) + 1) * snakeGridSize,
+                    pulse: 0
+                };
+
+                // Check if food overlaps with snake
+                validPosition = !snake.some(segment =>
+                    segment.x === snakeFood.x && segment.y === snakeFood.y
+                );
+
+                attempts++;
+            }
+        }
+
+        function updateSnake() {
+            if (snakeGameOver || !snakeMode) return;
+
+            const now = performance.now();
+            const moveInterval = 1000 / snakeSpeed;
+
+            if (now - snakeLastMove >= moveInterval) {
+                snakeLastMove = now;
+
+                // Apply direction change
+                snakeDirection = { ...snakeNextDirection };
+
+                // Calculate new head position
+                const head = snake[0];
+                const newHead = {
+                    x: head.x + snakeDirection.x * snakeGridSize,
+                    y: head.y + snakeDirection.y * snakeGridSize
+                };
+
+                // Check wall collision
+                if (newHead.x < 0 || newHead.x >= canvas.width ||
+                    newHead.y < 0 || newHead.y >= canvas.height) {
+                    gameOver();
+                    return;
+                }
+
+                // Check self collision
+                if (snake.some(segment => segment.x === newHead.x && segment.y === newHead.y)) {
+                    gameOver();
+                    return;
+                }
+
+                // Add new head
+                snake.unshift(newHead);
+
+                // Check food collision
+                if (snakeFood && newHead.x === snakeFood.x && newHead.y === snakeFood.y) {
+                    // Eat food - don't remove tail, snake grows
+                    snakeScore += 10;
+                    updateSnakeScore();
+                    spawnFood();
+
+                    // Create explosion effect at food location
+                    createExplosion(snakeFood.x + snakeGridSize / 2, snakeFood.y + snakeGridSize / 2, 20);
+
+                    // Speed up slightly as score increases
+                    if (snakeScore % 50 === 0 && snakeSpeed < 20) {
+                        snakeSpeed += 0.5;
+                        document.getElementById('snakeSpeedSlider').value = snakeSpeed;
+                        document.getElementById('snakeSpeedValue').textContent = Math.round(snakeSpeed);
+                    }
+                } else {
+                    // Remove tail (snake moves, doesn't grow)
+                    snake.pop();
+                }
+            }
+        }
+
+        function gameOver() {
+            snakeGameOver = true;
+
+            // Update high score
+            if (snakeScore > snakeHighScore) {
+                snakeHighScore = snakeScore;
+                document.getElementById('stat-snake-highscore').textContent = snakeHighScore;
+            }
+
+            // Show restart button
+            document.getElementById('snakeRestartBtn').style.display = 'block';
+        }
+
+        function updateSnakeScore() {
+            document.getElementById('stat-snake-score').textContent = snakeScore;
+        }
+
+        function drawSnake() {
+            if (!snakeMode || snake.length === 0) return;
+
+            // Draw snake body segments
+            snake.forEach((segment, index) => {
+                const isHead = index === 0;
+                const t = index / snake.length;
+
+                // Color gradient from head to tail
+                const color = lerpColor(colorConfig.nodeColor1, colorConfig.nodeColor2, t);
+                const opacity = 1 - (t * 0.4);
+                const size = isHead ? snakeSegmentSize : snakeSegmentSize - (t * 4);
+
+                // Draw segment
+                ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${opacity})`;
+                ctx.beginPath();
+                ctx.roundRect(
+                    segment.x + (snakeGridSize - size) / 2,
+                    segment.y + (snakeGridSize - size) / 2,
+                    size,
+                    size,
+                    isHead ? 5 : 3
+                );
+                ctx.fill();
+
+                // Glow effect for head
+                if (isHead) {
+                    ctx.shadowColor = `rgba(${color.r}, ${color.g}, ${color.b}, 0.8)`;
+                    ctx.shadowBlur = 15;
+                    ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, 0.3)`;
+                    ctx.beginPath();
+                    ctx.roundRect(
+                        segment.x + (snakeGridSize - size - 6) / 2,
+                        segment.y + (snakeGridSize - size - 6) / 2,
+                        size + 6,
+                        size + 6,
+                        7
+                    );
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+
+                    // Draw eyes on head
+                    const eyeOffset = snakeGridSize * 0.25;
+                    const eyeSize = 3;
+
+                    ctx.fillStyle = '#ffffff';
+
+                    // Position eyes based on direction
+                    let eye1x, eye1y, eye2x, eye2y;
+                    const centerX = segment.x + snakeGridSize / 2;
+                    const centerY = segment.y + snakeGridSize / 2;
+
+                    if (snakeDirection.x === 1) {
+                        // Moving right
+                        eye1x = centerX + eyeOffset * 0.3;
+                        eye1y = centerY - eyeOffset;
+                        eye2x = centerX + eyeOffset * 0.3;
+                        eye2y = centerY + eyeOffset;
+                    } else if (snakeDirection.x === -1) {
+                        // Moving left
+                        eye1x = centerX - eyeOffset * 0.3;
+                        eye1y = centerY - eyeOffset;
+                        eye2x = centerX - eyeOffset * 0.3;
+                        eye2y = centerY + eyeOffset;
+                    } else if (snakeDirection.y === -1) {
+                        // Moving up
+                        eye1x = centerX - eyeOffset;
+                        eye1y = centerY - eyeOffset * 0.3;
+                        eye2x = centerX + eyeOffset;
+                        eye2y = centerY - eyeOffset * 0.3;
+                    } else {
+                        // Moving down
+                        eye1x = centerX - eyeOffset;
+                        eye1y = centerY + eyeOffset * 0.3;
+                        eye2x = centerX + eyeOffset;
+                        eye2y = centerY + eyeOffset * 0.3;
+                    }
+
+                    ctx.beginPath();
+                    ctx.arc(eye1x, eye1y, eyeSize, 0, Math.PI * 2);
+                    ctx.arc(eye2x, eye2y, eyeSize, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+
+            // Draw food
+            if (snakeFood) {
+                snakeFood.pulse += 0.1;
+                const pulseScale = 1 + Math.sin(snakeFood.pulse) * 0.2;
+                const foodSize = snakeSegmentSize * pulseScale;
+
+                const foodColor = hexToRgb(colorConfig.nodeColor1);
+
+                // Glow
+                ctx.shadowColor = `rgba(${foodColor.r}, ${foodColor.g}, ${foodColor.b}, 0.9)`;
+                ctx.shadowBlur = 20;
+
+                ctx.fillStyle = `rgba(${foodColor.r}, ${foodColor.g}, ${foodColor.b}, 0.9)`;
+                ctx.beginPath();
+                ctx.arc(
+                    snakeFood.x + snakeGridSize / 2,
+                    snakeFood.y + snakeGridSize / 2,
+                    foodSize / 2,
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fill();
+
+                // Inner bright core
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(
+                    snakeFood.x + snakeGridSize / 2,
+                    snakeFood.y + snakeGridSize / 2,
+                    foodSize / 4,
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fill();
+
+                ctx.shadowBlur = 0;
+            }
+
+            // Draw game over overlay
+            if (snakeGameOver) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                const textColor = hexToRgb(colorConfig.nodeColor1);
+
+                ctx.font = 'bold 48px Courier New';
+                ctx.textAlign = 'center';
+                ctx.fillStyle = `rgb(${textColor.r}, ${textColor.g}, ${textColor.b})`;
+                ctx.shadowColor = `rgba(${textColor.r}, ${textColor.g}, ${textColor.b}, 0.8)`;
+                ctx.shadowBlur = 20;
+                ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2 - 40);
+
+                ctx.font = '24px Courier New';
+                ctx.fillStyle = '#ffffff';
+                ctx.fillText(`Score: ${snakeScore}`, canvas.width / 2, canvas.height / 2 + 20);
+
+                if (snakeScore === snakeHighScore && snakeScore > 0) {
+                    ctx.fillStyle = '#ffd700';
+                    ctx.fillText('NEW HIGH SCORE!', canvas.width / 2, canvas.height / 2 + 60);
+                }
+
+                ctx.shadowBlur = 0;
+                ctx.textAlign = 'left';
+            }
         }
 
         // Control handlers
@@ -1662,6 +1990,77 @@
         document.getElementById('edgeColor2').addEventListener('input', (e) => {
             colorConfig.edgeColor2 = e.target.value;
             document.getElementById('themeSelect').value = 'custom';
+        });
+
+        // Snake mode controls
+        document.getElementById('snakeToggle').addEventListener('click', (e) => {
+            snakeMode = !snakeMode;
+            e.currentTarget.classList.toggle('active');
+
+            // Show/hide snake-specific controls
+            document.getElementById('snakeInstructions').style.display = snakeMode ? 'block' : 'none';
+            document.getElementById('snakeSpeedControl').style.display = snakeMode ? 'block' : 'none';
+            document.getElementById('snakeScoreRow').style.display = snakeMode ? 'flex' : 'none';
+            document.getElementById('snakeHighScoreRow').style.display = snakeMode ? 'flex' : 'none';
+
+            if (snakeMode) {
+                initSnake();
+            } else {
+                document.getElementById('snakeRestartBtn').style.display = 'none';
+            }
+        });
+
+        document.getElementById('snakeSpeedSlider').addEventListener('input', (e) => {
+            snakeSpeed = parseInt(e.target.value);
+            document.getElementById('snakeSpeedValue').textContent = snakeSpeed;
+        });
+
+        document.getElementById('snakeRestartBtn').addEventListener('click', () => {
+            snakeSpeed = 8;
+            document.getElementById('snakeSpeedSlider').value = 8;
+            document.getElementById('snakeSpeedValue').textContent = '8';
+            document.getElementById('snakeRestartBtn').style.display = 'none';
+            initSnake();
+        });
+
+        // Keyboard controls for snake
+        document.addEventListener('keydown', (e) => {
+            if (!snakeMode || snakeGameOver) return;
+
+            // Prevent arrow keys from scrolling
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd'].includes(e.key)) {
+                e.preventDefault();
+            }
+
+            // Get new direction (can't reverse)
+            let newDir = null;
+
+            switch (e.key) {
+                case 'ArrowUp':
+                case 'w':
+                case 'W':
+                    if (snakeDirection.y !== 1) newDir = { x: 0, y: -1 };
+                    break;
+                case 'ArrowDown':
+                case 's':
+                case 'S':
+                    if (snakeDirection.y !== -1) newDir = { x: 0, y: 1 };
+                    break;
+                case 'ArrowLeft':
+                case 'a':
+                case 'A':
+                    if (snakeDirection.x !== 1) newDir = { x: -1, y: 0 };
+                    break;
+                case 'ArrowRight':
+                case 'd':
+                case 'D':
+                    if (snakeDirection.x !== -1) newDir = { x: 1, y: 0 };
+                    break;
+            }
+
+            if (newDir) {
+                snakeNextDirection = newDir;
+            }
         });
 
         // Click handler for explosions
