@@ -166,6 +166,49 @@
             letter-spacing: 2px;
         }
 
+        /* Focus Mode - Timer centered, UI hidden */
+        .pomodoro-display.focus-mode {
+            left: 50%;
+            top: 50%;
+            bottom: auto;
+            transform: translate(-50%, -50%) scale(1.4);
+            background: rgba(10, 20, 40, 0.15);
+            border-color: transparent;
+            box-shadow: none !important;
+            backdrop-filter: none;
+        }
+
+        .pomodoro-display.focus-mode .pomodoro-ring-bg {
+            stroke: rgba(255, 255, 255, 0.05);
+        }
+
+        .pomodoro-display.focus-mode .pomodoro-ring-progress {
+            opacity: 0.7;
+        }
+
+        .pomodoro-display.focus-mode .pomodoro-time {
+            opacity: 0.7;
+        }
+
+        .pomodoro-display.focus-mode .pomodoro-label,
+        .pomodoro-display.focus-mode .pomodoro-session {
+            opacity: 0.4;
+        }
+
+        .pomodoro-display.focus-mode {
+            cursor: pointer;
+        }
+
+        .pomodoro-display.focus-mode:hover .pomodoro-time {
+            opacity: 0.9;
+        }
+
+        .hidden-for-focus {
+            opacity: 0 !important;
+            pointer-events: none !important;
+            transition: opacity 0.5s ease !important;
+        }
+
         /* Control Panel */
         .control-panel {
             position: fixed;
@@ -2376,11 +2419,26 @@
             });
         }
 
+        function enterFocusMode() {
+            document.getElementById('pomodoroDisplay').classList.add('focus-mode');
+            document.getElementById('controlPanel').classList.add('hidden-for-focus');
+            document.querySelector('.stats-panel').classList.add('hidden-for-focus');
+            document.getElementById('collapseBtn').classList.add('hidden-for-focus');
+        }
+
+        function exitFocusMode() {
+            document.getElementById('pomodoroDisplay').classList.remove('focus-mode');
+            document.getElementById('controlPanel').classList.remove('hidden-for-focus');
+            document.querySelector('.stats-panel').classList.remove('hidden-for-focus');
+            document.getElementById('collapseBtn').classList.remove('hidden-for-focus');
+        }
+
         function startPomodoro() {
             pomodoroRunning = true;
             pomodoroInterval = setInterval(pomodoroTick, 1000);
             document.getElementById('pomodoroStartBtn').textContent = '⏸ PAUSE';
             document.getElementById('pomodoroResetBtn').style.display = 'block';
+            enterFocusMode();
         }
 
         function pausePomodoro() {
@@ -2388,6 +2446,7 @@
             clearInterval(pomodoroInterval);
             pomodoroInterval = null;
             document.getElementById('pomodoroStartBtn').textContent = '▶ RESUME';
+            exitFocusMode();
         }
 
         function resetPomodoro() {
@@ -2398,6 +2457,7 @@
             updatePomodoroDisplay();
             document.getElementById('pomodoroStartBtn').textContent = '▶ START';
             document.getElementById('pomodoroResetBtn').style.display = 'none';
+            exitFocusMode();
         }
 
         // Pomodoro event handlers
@@ -2444,6 +2504,13 @@
         });
 
         document.getElementById('pomodoroResetBtn').addEventListener('click', resetPomodoro);
+
+        // Click on timer display to pause when in focus mode
+        document.getElementById('pomodoroDisplay').addEventListener('click', (e) => {
+            if (pomodoroRunning && document.getElementById('pomodoroDisplay').classList.contains('focus-mode')) {
+                pausePomodoro();
+            }
+        });
 
         // Initialize and start
         initNodes();
