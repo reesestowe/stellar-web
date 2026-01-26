@@ -1657,124 +1657,94 @@
         function drawSnake() {
             if (!snakeMode || snake.length === 0) return;
 
-            // Draw snake body segments
-            snake.forEach((segment, index) => {
+            // Draw snake body segments (optimized - no shadows)
+            const snakeLen = snake.length;
+            for (let index = snakeLen - 1; index >= 0; index--) {
+                const segment = snake[index];
                 const isHead = index === 0;
-                const t = index / snake.length;
+                const t = index / snakeLen;
 
                 // Color gradient from head to tail
                 const color = lerpColor(colorConfig.nodeColor1, colorConfig.nodeColor2, t);
                 const opacity = 1 - (t * 0.4);
                 const size = isHead ? snakeSegmentSize : snakeSegmentSize - (t * 4);
 
-                // Draw segment
+                const x = segment.x + (snakeGridSize - size) / 2;
+                const y = segment.y + (snakeGridSize - size) / 2;
+
+                // Simple glow for head (no shadowBlur - just draw larger transparent circle)
+                if (isHead) {
+                    ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, 0.2)`;
+                    ctx.beginPath();
+                    ctx.arc(segment.x + snakeGridSize / 2, segment.y + snakeGridSize / 2, size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Draw segment as circle (faster than roundRect)
                 ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${opacity})`;
                 ctx.beginPath();
-                ctx.roundRect(
-                    segment.x + (snakeGridSize - size) / 2,
-                    segment.y + (snakeGridSize - size) / 2,
-                    size,
-                    size,
-                    isHead ? 5 : 3
-                );
+                ctx.arc(segment.x + snakeGridSize / 2, segment.y + snakeGridSize / 2, size / 2, 0, Math.PI * 2);
                 ctx.fill();
 
-                // Glow effect for head
+                // Draw eyes on head
                 if (isHead) {
-                    ctx.shadowColor = `rgba(${color.r}, ${color.g}, ${color.b}, 0.8)`;
-                    ctx.shadowBlur = 15;
-                    ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, 0.3)`;
-                    ctx.beginPath();
-                    ctx.roundRect(
-                        segment.x + (snakeGridSize - size - 6) / 2,
-                        segment.y + (snakeGridSize - size - 6) / 2,
-                        size + 6,
-                        size + 6,
-                        7
-                    );
-                    ctx.fill();
-                    ctx.shadowBlur = 0;
-
-                    // Draw eyes on head
-                    const eyeOffset = snakeGridSize * 0.25;
-                    const eyeSize = 3;
-
-                    ctx.fillStyle = '#ffffff';
-
-                    // Position eyes based on direction
-                    let eye1x, eye1y, eye2x, eye2y;
+                    const eyeOffset = snakeGridSize * 0.2;
+                    const eyeSize = 2.5;
                     const centerX = segment.x + snakeGridSize / 2;
                     const centerY = segment.y + snakeGridSize / 2;
 
+                    let eye1x, eye1y, eye2x, eye2y;
                     if (snakeDirection.x === 1) {
-                        // Moving right
-                        eye1x = centerX + eyeOffset * 0.3;
-                        eye1y = centerY - eyeOffset;
-                        eye2x = centerX + eyeOffset * 0.3;
-                        eye2y = centerY + eyeOffset;
+                        eye1x = centerX + 2; eye1y = centerY - eyeOffset;
+                        eye2x = centerX + 2; eye2y = centerY + eyeOffset;
                     } else if (snakeDirection.x === -1) {
-                        // Moving left
-                        eye1x = centerX - eyeOffset * 0.3;
-                        eye1y = centerY - eyeOffset;
-                        eye2x = centerX - eyeOffset * 0.3;
-                        eye2y = centerY + eyeOffset;
+                        eye1x = centerX - 2; eye1y = centerY - eyeOffset;
+                        eye2x = centerX - 2; eye2y = centerY + eyeOffset;
                     } else if (snakeDirection.y === -1) {
-                        // Moving up
-                        eye1x = centerX - eyeOffset;
-                        eye1y = centerY - eyeOffset * 0.3;
-                        eye2x = centerX + eyeOffset;
-                        eye2y = centerY - eyeOffset * 0.3;
+                        eye1x = centerX - eyeOffset; eye1y = centerY - 2;
+                        eye2x = centerX + eyeOffset; eye2y = centerY - 2;
                     } else {
-                        // Moving down
-                        eye1x = centerX - eyeOffset;
-                        eye1y = centerY + eyeOffset * 0.3;
-                        eye2x = centerX + eyeOffset;
-                        eye2y = centerY + eyeOffset * 0.3;
+                        eye1x = centerX - eyeOffset; eye1y = centerY + 2;
+                        eye2x = centerX + eyeOffset; eye2y = centerY + 2;
                     }
 
+                    ctx.fillStyle = '#ffffff';
                     ctx.beginPath();
                     ctx.arc(eye1x, eye1y, eyeSize, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.beginPath();
                     ctx.arc(eye2x, eye2y, eyeSize, 0, Math.PI * 2);
                     ctx.fill();
                 }
-            });
+            }
 
-            // Draw food
+            // Draw food (optimized - fake glow without shadowBlur)
             if (snakeFood) {
                 snakeFood.pulse += 0.1;
                 const pulseScale = 1 + Math.sin(snakeFood.pulse) * 0.2;
                 const foodSize = snakeSegmentSize * pulseScale;
+                const foodX = snakeFood.x + snakeGridSize / 2;
+                const foodY = snakeFood.y + snakeGridSize / 2;
 
                 const foodColor = hexToRgb(colorConfig.nodeColor1);
 
-                // Glow
-                ctx.shadowColor = `rgba(${foodColor.r}, ${foodColor.g}, ${foodColor.b}, 0.9)`;
-                ctx.shadowBlur = 20;
+                // Fake glow - outer ring
+                ctx.fillStyle = `rgba(${foodColor.r}, ${foodColor.g}, ${foodColor.b}, 0.15)`;
+                ctx.beginPath();
+                ctx.arc(foodX, foodY, foodSize, 0, Math.PI * 2);
+                ctx.fill();
 
+                // Main food
                 ctx.fillStyle = `rgba(${foodColor.r}, ${foodColor.g}, ${foodColor.b}, 0.9)`;
                 ctx.beginPath();
-                ctx.arc(
-                    snakeFood.x + snakeGridSize / 2,
-                    snakeFood.y + snakeGridSize / 2,
-                    foodSize / 2,
-                    0,
-                    Math.PI * 2
-                );
+                ctx.arc(foodX, foodY, foodSize / 2, 0, Math.PI * 2);
                 ctx.fill();
 
                 // Inner bright core
                 ctx.fillStyle = '#ffffff';
                 ctx.beginPath();
-                ctx.arc(
-                    snakeFood.x + snakeGridSize / 2,
-                    snakeFood.y + snakeGridSize / 2,
-                    foodSize / 4,
-                    0,
-                    Math.PI * 2
-                );
+                ctx.arc(foodX, foodY, foodSize / 4, 0, Math.PI * 2);
                 ctx.fill();
-
-                ctx.shadowBlur = 0;
             }
 
             // Draw game over overlay
@@ -1787,8 +1757,6 @@
                 ctx.font = 'bold 48px Courier New';
                 ctx.textAlign = 'center';
                 ctx.fillStyle = `rgb(${textColor.r}, ${textColor.g}, ${textColor.b})`;
-                ctx.shadowColor = `rgba(${textColor.r}, ${textColor.g}, ${textColor.b}, 0.8)`;
-                ctx.shadowBlur = 20;
                 ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2 - 40);
 
                 ctx.font = '24px Courier New';
@@ -1800,7 +1768,6 @@
                     ctx.fillText('NEW HIGH SCORE!', canvas.width / 2, canvas.height / 2 + 60);
                 }
 
-                ctx.shadowBlur = 0;
                 ctx.textAlign = 'left';
             }
         }
