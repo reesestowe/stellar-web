@@ -25,6 +25,120 @@
             background: #0a0015;
         }
 
+        /* Loading Screen */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #0a0015;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.8s ease, visibility 0.8s ease;
+        }
+
+        .loading-screen.hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        .loading-title {
+            font-size: 48px;
+            font-weight: bold;
+            color: #00ffff;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.8), 0 0 40px rgba(0, 255, 255, 0.4);
+            letter-spacing: 8px;
+            margin-bottom: 40px;
+            animation: titlePulse 2s ease-in-out infinite;
+        }
+
+        @keyframes titlePulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.02); }
+        }
+
+        .loading-orbs {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .loading-orb {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00ffff, #ff00ff);
+            animation: orbBounce 1.4s ease-in-out infinite;
+        }
+
+        .loading-orb:nth-child(1) { animation-delay: 0s; }
+        .loading-orb:nth-child(2) { animation-delay: 0.2s; }
+        .loading-orb:nth-child(3) { animation-delay: 0.4s; }
+        .loading-orb:nth-child(4) { animation-delay: 0.6s; }
+        .loading-orb:nth-child(5) { animation-delay: 0.8s; }
+
+        @keyframes orbBounce {
+            0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+            40% { transform: translateY(-20px); opacity: 1; }
+        }
+
+        .loading-text {
+            color: #888;
+            font-size: 14px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        /* Pomodoro Timer */
+        .pomodoro-display {
+            position: fixed;
+            left: 20px;
+            bottom: 20px;
+            background: rgba(10, 20, 40, 0.95);
+            backdrop-filter: blur(10px);
+            border: 2px solid #ff6b6b;
+            border-radius: 15px;
+            padding: 20px;
+            min-width: 200px;
+            z-index: 1000;
+            display: none;
+        }
+
+        .pomodoro-display.active {
+            display: block;
+        }
+
+        .pomodoro-time {
+            font-size: 48px;
+            font-weight: bold;
+            text-align: center;
+            color: #ff6b6b;
+            text-shadow: 0 0 15px rgba(255, 107, 107, 0.6);
+            font-family: 'Courier New', monospace;
+        }
+
+        .pomodoro-label {
+            text-align: center;
+            color: #aaa;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-top: 8px;
+        }
+
+        .pomodoro-display.break-mode {
+            border-color: #4ecdc4;
+        }
+
+        .pomodoro-display.break-mode .pomodoro-time {
+            color: #4ecdc4;
+            text-shadow: 0 0 15px rgba(78, 205, 196, 0.6);
+        }
+
         /* Control Panel */
         .control-panel {
             position: fixed;
@@ -358,6 +472,25 @@
     </style>
 </head>
 <body>
+    <!-- Loading Screen -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-title">STELLAR WEB</div>
+        <div class="loading-orbs">
+            <div class="loading-orb"></div>
+            <div class="loading-orb"></div>
+            <div class="loading-orb"></div>
+            <div class="loading-orb"></div>
+            <div class="loading-orb"></div>
+        </div>
+        <div class="loading-text">Initializing Network</div>
+    </div>
+
+    <!-- Pomodoro Timer Display -->
+    <div class="pomodoro-display" id="pomodoroDisplay">
+        <div class="pomodoro-time" id="pomodoroTime">25:00</div>
+        <div class="pomodoro-label" id="pomodoroLabel">Focus Time</div>
+    </div>
+
     <canvas id="network"></canvas>
 
     <button class="collapse-btn" id="collapseBtn">Hide Controls</button>
@@ -579,6 +712,39 @@
                 <input type="color" class="color-picker" id="edgeColor2" value="#8000ff">
             </div>
         </div>
+
+        <div class="pomodoro-section">
+            <div class="section-divider"></div>
+            <div class="section-title">⏱ POMODORO</div>
+
+            <div class="toggle-container">
+                <span class="toggle-label">Enable Timer</span>
+                <div class="toggle-switch" id="pomodoroToggle">
+                    <div class="toggle-slider"></div>
+                </div>
+            </div>
+
+            <div id="pomodoroControls" style="display: none;">
+                <div class="control-group">
+                    <label>
+                        Work Duration
+                        <span class="value-display" id="workDurationValue">25</span>
+                    </label>
+                    <input type="range" id="workDuration" min="5" max="60" value="25" step="5">
+                </div>
+
+                <div class="control-group">
+                    <label>
+                        Break Duration
+                        <span class="value-display" id="breakDurationValue">5</span>
+                    </label>
+                    <input type="range" id="breakDuration" min="1" max="15" value="5" step="1">
+                </div>
+
+                <button class="music-btn" id="pomodoroStartBtn" style="background: linear-gradient(135deg, rgba(255, 107, 107, 0.3), rgba(255, 200, 100, 0.3)); border-color: #ff6b6b;">▶ START</button>
+                <button class="music-btn" id="pomodoroResetBtn" style="display: none; background: linear-gradient(135deg, rgba(100, 100, 100, 0.3), rgba(150, 150, 150, 0.3)); border-color: #888;">↻ RESET</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -719,6 +885,15 @@
         let snakeHighScore = 0;
         const snakeSegmentSize = 15;
         const snakeGridSize = 20;
+
+        // Pomodoro timer state
+        let pomodoroEnabled = false;
+        let pomodoroRunning = false;
+        let pomodoroWorkDuration = 25 * 60; // 25 minutes in seconds
+        let pomodoroBreakDuration = 5 * 60; // 5 minutes in seconds
+        let pomodoroTimeLeft = pomodoroWorkDuration;
+        let pomodoroIsBreak = false;
+        let pomodoroInterval = null;
 
         // Helper function to convert hex to RGB
         function hexToRgb(hex) {
@@ -2060,8 +2235,157 @@
             canvas.height = window.innerHeight;
         });
 
+        // Pomodoro Timer Functions
+        // ========================
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function updatePomodoroDisplay() {
+            document.getElementById('pomodoroTime').textContent = formatTime(pomodoroTimeLeft);
+            document.getElementById('pomodoroLabel').textContent = pomodoroIsBreak ? 'Break Time' : 'Focus Time';
+
+            const display = document.getElementById('pomodoroDisplay');
+            if (pomodoroIsBreak) {
+                display.classList.add('break-mode');
+            } else {
+                display.classList.remove('break-mode');
+            }
+        }
+
+        function pomodoroTick() {
+            if (pomodoroTimeLeft > 0) {
+                pomodoroTimeLeft--;
+                updatePomodoroDisplay();
+            } else {
+                // Timer finished - switch modes
+                playPomodoroChime();
+
+                if (pomodoroIsBreak) {
+                    // Break finished, start work
+                    pomodoroIsBreak = false;
+                    pomodoroTimeLeft = pomodoroWorkDuration;
+                } else {
+                    // Work finished, start break
+                    pomodoroIsBreak = true;
+                    pomodoroTimeLeft = pomodoroBreakDuration;
+                }
+                updatePomodoroDisplay();
+            }
+        }
+
+        function playPomodoroChime() {
+            if (!audioContext) {
+                initAudio();
+            }
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+
+            // Play a pleasant chime sound
+            const now = audioContext.currentTime;
+
+            // Three ascending notes for work done, descending for break done
+            const notes = pomodoroIsBreak ? [523.25, 659.25, 783.99] : [783.99, 659.25, 523.25];
+
+            notes.forEach((freq, i) => {
+                const osc = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.value = freq;
+
+                gain.gain.setValueAtTime(0, now + i * 0.15);
+                gain.gain.linearRampToValueAtTime(0.3, now + i * 0.15 + 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.15 + 0.4);
+
+                osc.connect(gain);
+                gain.connect(audioContext.destination);
+
+                osc.start(now + i * 0.15);
+                osc.stop(now + i * 0.15 + 0.5);
+            });
+        }
+
+        function startPomodoro() {
+            pomodoroRunning = true;
+            pomodoroInterval = setInterval(pomodoroTick, 1000);
+            document.getElementById('pomodoroStartBtn').textContent = '⏸ PAUSE';
+            document.getElementById('pomodoroResetBtn').style.display = 'block';
+        }
+
+        function pausePomodoro() {
+            pomodoroRunning = false;
+            clearInterval(pomodoroInterval);
+            pomodoroInterval = null;
+            document.getElementById('pomodoroStartBtn').textContent = '▶ RESUME';
+        }
+
+        function resetPomodoro() {
+            pausePomodoro();
+            pomodoroIsBreak = false;
+            pomodoroTimeLeft = pomodoroWorkDuration;
+            updatePomodoroDisplay();
+            document.getElementById('pomodoroStartBtn').textContent = '▶ START';
+            document.getElementById('pomodoroResetBtn').style.display = 'none';
+        }
+
+        // Pomodoro event handlers
+        document.getElementById('pomodoroToggle').addEventListener('click', (e) => {
+            pomodoroEnabled = !pomodoroEnabled;
+            e.currentTarget.classList.toggle('active');
+
+            document.getElementById('pomodoroControls').style.display = pomodoroEnabled ? 'block' : 'none';
+            document.getElementById('pomodoroDisplay').classList.toggle('active', pomodoroEnabled);
+
+            if (!pomodoroEnabled) {
+                resetPomodoro();
+            } else {
+                updatePomodoroDisplay();
+            }
+        });
+
+        document.getElementById('workDuration').addEventListener('input', (e) => {
+            const mins = parseInt(e.target.value);
+            document.getElementById('workDurationValue').textContent = mins;
+            pomodoroWorkDuration = mins * 60;
+            if (!pomodoroRunning && !pomodoroIsBreak) {
+                pomodoroTimeLeft = pomodoroWorkDuration;
+                updatePomodoroDisplay();
+            }
+        });
+
+        document.getElementById('breakDuration').addEventListener('input', (e) => {
+            const mins = parseInt(e.target.value);
+            document.getElementById('breakDurationValue').textContent = mins;
+            pomodoroBreakDuration = mins * 60;
+            if (!pomodoroRunning && pomodoroIsBreak) {
+                pomodoroTimeLeft = pomodoroBreakDuration;
+                updatePomodoroDisplay();
+            }
+        });
+
+        document.getElementById('pomodoroStartBtn').addEventListener('click', () => {
+            if (pomodoroRunning) {
+                pausePomodoro();
+            } else {
+                startPomodoro();
+            }
+        });
+
+        document.getElementById('pomodoroResetBtn').addEventListener('click', resetPomodoro);
+
         // Initialize and start
         initNodes();
+
+        // Dismiss loading screen after a short delay
+        setTimeout(() => {
+            document.getElementById('loadingScreen').classList.add('hidden');
+        }, 1500);
+
         animate();
     </script>
 </body>
