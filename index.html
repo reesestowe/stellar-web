@@ -103,9 +103,10 @@
             border: 2px solid #00ffff;
             border-radius: 15px;
             padding: 25px;
-            z-index: 1000;
+            z-index: 2000;
             display: none;
             text-align: center;
+            transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .pomodoro-display.active {
@@ -224,7 +225,7 @@
             max-height: 90vh;
             overflow-y: auto;
             z-index: 1000;
-            transition: transform 0.3s ease;
+            transition: transform 0.3s ease, opacity 0.5s ease;
         }
 
         .control-panel.collapsed {
@@ -492,6 +493,7 @@
             box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
             z-index: 1000;
             font-family: 'Courier New', monospace;
+            transition: opacity 0.5s ease;
         }
 
         .stats-title {
