@@ -100,43 +100,70 @@
             bottom: 20px;
             background: rgba(10, 20, 40, 0.95);
             backdrop-filter: blur(10px);
-            border: 2px solid #ff6b6b;
+            border: 2px solid #00ffff;
             border-radius: 15px;
-            padding: 20px;
-            min-width: 200px;
+            padding: 25px;
             z-index: 1000;
             display: none;
+            text-align: center;
         }
 
         .pomodoro-display.active {
             display: block;
         }
 
+        .pomodoro-ring {
+            position: relative;
+            width: 160px;
+            height: 160px;
+            margin: 0 auto 15px;
+        }
+
+        .pomodoro-ring svg {
+            transform: rotate(-90deg);
+            width: 160px;
+            height: 160px;
+        }
+
+        .pomodoro-ring-bg {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.1);
+            stroke-width: 8;
+        }
+
+        .pomodoro-ring-progress {
+            fill: none;
+            stroke: #00ffff;
+            stroke-width: 8;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.5s ease;
+        }
+
         .pomodoro-time {
-            font-size: 48px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 36px;
             font-weight: bold;
-            text-align: center;
-            color: #ff6b6b;
-            text-shadow: 0 0 15px rgba(255, 107, 107, 0.6);
+            color: #00ffff;
             font-family: 'Courier New', monospace;
+            letter-spacing: 2px;
         }
 
         .pomodoro-label {
-            text-align: center;
             color: #aaa;
-            font-size: 12px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin-bottom: 5px;
+        }
+
+        .pomodoro-session {
+            color: #666;
+            font-size: 10px;
             text-transform: uppercase;
             letter-spacing: 2px;
-            margin-top: 8px;
-        }
-
-        .pomodoro-display.break-mode {
-            border-color: #4ecdc4;
-        }
-
-        .pomodoro-display.break-mode .pomodoro-time {
-            color: #4ecdc4;
-            text-shadow: 0 0 15px rgba(78, 205, 196, 0.6);
         }
 
         /* Control Panel */
@@ -487,8 +514,16 @@
 
     <!-- Pomodoro Timer Display -->
     <div class="pomodoro-display" id="pomodoroDisplay">
-        <div class="pomodoro-time" id="pomodoroTime">25:00</div>
         <div class="pomodoro-label" id="pomodoroLabel">Focus Time</div>
+        <div class="pomodoro-ring">
+            <svg viewBox="0 0 160 160">
+                <circle class="pomodoro-ring-bg" cx="80" cy="80" r="70"></circle>
+                <circle class="pomodoro-ring-progress" id="pomodoroProgress" cx="80" cy="80" r="70"
+                    stroke-dasharray="439.82" stroke-dashoffset="0"></circle>
+            </svg>
+            <div class="pomodoro-time" id="pomodoroTime">25:00</div>
+        </div>
+        <div class="pomodoro-session" id="pomodoroSession">Session 1</div>
     </div>
 
     <canvas id="network"></canvas>
@@ -894,6 +929,8 @@
         let pomodoroTimeLeft = pomodoroWorkDuration;
         let pomodoroIsBreak = false;
         let pomodoroInterval = null;
+        let pomodoroSessionCount = 1;
+        const pomodoroCircumference = 2 * Math.PI * 70; // 439.82
 
         // Helper function to convert hex to RGB
         function hexToRgb(hex) {
@@ -2094,6 +2131,11 @@
 
                 // Update stats panel to match theme
                 updateStatsPanel();
+
+                // Update pomodoro timer to match theme
+                if (pomodoroEnabled) {
+                    updatePomodoroTheme();
+                }
             }
         }
 
@@ -2116,12 +2158,14 @@
             colorConfig.nodeColor1 = e.target.value;
             document.getElementById('themeSelect').value = 'custom';
             updateStatsPanel();
+            if (pomodoroEnabled) updatePomodoroTheme();
         });
 
         document.getElementById('nodeColor2').addEventListener('input', (e) => {
             colorConfig.nodeColor2 = e.target.value;
             document.getElementById('themeSelect').value = 'custom';
             updateStatsPanel();
+            if (pomodoroEnabled) updatePomodoroTheme();
         });
 
         document.getElementById('edgeColor1').addEventListener('input', (e) => {
@@ -2244,16 +2288,37 @@
             return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
         }
 
+        function updatePomodoroTheme() {
+            const display = document.getElementById('pomodoroDisplay');
+            const timeEl = document.getElementById('pomodoroTime');
+            const progressEl = document.getElementById('pomodoroProgress');
+            const labelEl = document.getElementById('pomodoroLabel');
+
+            // Use theme colors - nodeColor1 for work, nodeColor2 for break
+            const activeColor = pomodoroIsBreak ? colorConfig.nodeColor2 : colorConfig.nodeColor1;
+
+            display.style.borderColor = activeColor;
+            display.style.boxShadow = `0 0 25px ${activeColor}40`;
+            timeEl.style.color = activeColor;
+            timeEl.style.textShadow = `0 0 15px ${activeColor}99`;
+            progressEl.style.stroke = activeColor;
+            labelEl.style.color = activeColor;
+        }
+
+        function updatePomodoroProgress() {
+            const totalTime = pomodoroIsBreak ? pomodoroBreakDuration : pomodoroWorkDuration;
+            const progress = pomodoroTimeLeft / totalTime;
+            const offset = pomodoroCircumference * (1 - progress);
+            document.getElementById('pomodoroProgress').style.strokeDashoffset = offset;
+        }
+
         function updatePomodoroDisplay() {
             document.getElementById('pomodoroTime').textContent = formatTime(pomodoroTimeLeft);
             document.getElementById('pomodoroLabel').textContent = pomodoroIsBreak ? 'Break Time' : 'Focus Time';
+            document.getElementById('pomodoroSession').textContent = `Session ${pomodoroSessionCount}`;
 
-            const display = document.getElementById('pomodoroDisplay');
-            if (pomodoroIsBreak) {
-                display.classList.add('break-mode');
-            } else {
-                display.classList.remove('break-mode');
-            }
+            updatePomodoroProgress();
+            updatePomodoroTheme();
         }
 
         function pomodoroTick() {
@@ -2265,9 +2330,10 @@
                 playPomodoroChime();
 
                 if (pomodoroIsBreak) {
-                    // Break finished, start work
+                    // Break finished, start new work session
                     pomodoroIsBreak = false;
                     pomodoroTimeLeft = pomodoroWorkDuration;
+                    pomodoroSessionCount++;
                 } else {
                     // Work finished, start break
                     pomodoroIsBreak = true;
@@ -2328,6 +2394,7 @@
             pausePomodoro();
             pomodoroIsBreak = false;
             pomodoroTimeLeft = pomodoroWorkDuration;
+            pomodoroSessionCount = 1;
             updatePomodoroDisplay();
             document.getElementById('pomodoroStartBtn').textContent = '▶ START';
             document.getElementById('pomodoroResetBtn').style.display = 'none';
