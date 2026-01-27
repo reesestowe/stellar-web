@@ -841,6 +841,8 @@
                     <option value="house">House</option>
                     <option value="wii">Wii Lounge</option>
                     <option value="lofi">Lo-fi Hip Hop</option>
+                    <option value="ambient">Ambient</option>
+                    <option value="jazz">Jazz</option>
                 </select>
 
                 <button class="music-btn" id="musicBtn">▶ PLAY</button>
@@ -1959,6 +1961,388 @@
             playVinylCrackle(stepTime);
         }
 
+        // =====================
+        // Ambient Music
+        // =====================
+
+        // Ambient pad - long evolving drone
+        function playAmbientPad(time, note, duration = 4.0) {
+            const osc = audioContext.createOscillator();
+            const osc2 = audioContext.createOscillator();
+            const osc3 = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            const filter = audioContext.createBiquadFilter();
+
+            // Warm pad with detuned oscillators
+            osc.type = 'sine';
+            osc.frequency.value = note;
+
+            osc2.type = 'sine';
+            osc2.frequency.value = note * 1.002; // Slight detune for width
+
+            osc3.type = 'triangle';
+            osc3.frequency.value = note * 0.998;
+
+            filter.type = 'lowpass';
+            filter.frequency.value = 400;
+            filter.Q.value = 0.3;
+
+            // Very slow attack and release
+            gain.gain.setValueAtTime(0, time);
+            gain.gain.linearRampToValueAtTime(0.08, time + 1.5);
+            gain.gain.setValueAtTime(0.08, time + duration - 2.0);
+            gain.gain.linearRampToValueAtTime(0, time + duration);
+
+            osc.connect(filter);
+            osc2.connect(filter);
+            osc3.connect(filter);
+            filter.connect(gain);
+            gain.connect(masterGain);
+
+            osc.start(time);
+            osc2.start(time);
+            osc3.start(time);
+            osc.stop(time + duration);
+            osc2.stop(time + duration);
+            osc3.stop(time + duration);
+        }
+
+        // Ambient shimmer - high ethereal tone
+        function playAmbientShimmer(time, note) {
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            const filter = audioContext.createBiquadFilter();
+
+            osc.type = 'sine';
+            osc.frequency.value = note;
+
+            filter.type = 'bandpass';
+            filter.frequency.value = note;
+            filter.Q.value = 2;
+
+            gain.gain.setValueAtTime(0, time);
+            gain.gain.linearRampToValueAtTime(0.04, time + 0.5);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + 3.0);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(masterGain);
+
+            osc.start(time);
+            osc.stop(time + 3.0);
+        }
+
+        // Ambient texture - gentle noise wash
+        function playAmbientTexture(time) {
+            const bufferSize = audioContext.sampleRate * 2;
+            const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+            const data = buffer.getChannelData(0);
+
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = (Math.random() * 2 - 1) * 0.5;
+            }
+
+            const noise = audioContext.createBufferSource();
+            noise.buffer = buffer;
+
+            const filter = audioContext.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.value = 800;
+            filter.Q.value = 0.3;
+
+            const gain = audioContext.createGain();
+            gain.gain.setValueAtTime(0, time);
+            gain.gain.linearRampToValueAtTime(0.02, time + 0.8);
+            gain.gain.linearRampToValueAtTime(0, time + 2.0);
+
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(masterGain);
+
+            noise.start(time);
+            noise.stop(time + 2.0);
+        }
+
+        // Ambient bell - crystalline ping
+        function playAmbientBell(time, note) {
+            const osc = audioContext.createOscillator();
+            const osc2 = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.value = note;
+
+            // Harmonic overtone
+            osc2.type = 'sine';
+            osc2.frequency.value = note * 2.76; // Inharmonic for bell-like tone
+
+            gain.gain.setValueAtTime(0, time);
+            gain.gain.linearRampToValueAtTime(0.06, time + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + 2.5);
+
+            osc.connect(gain);
+            osc2.connect(gain);
+            // Reduce overtone volume
+            const gain2 = audioContext.createGain();
+            gain2.gain.value = 0.3;
+            osc2.disconnect();
+            osc2.connect(gain2);
+            gain2.connect(gain);
+
+            gain.connect(masterGain);
+
+            osc.start(time);
+            osc2.start(time);
+            osc.stop(time + 2.5);
+            osc2.stop(time + 2.5);
+        }
+
+        // Ambient chord voicings (ethereal, open)
+        const ambientChordProgression = [
+            { pad: [130.81, 196.00, 329.63], shimmer: 659.25 },   // C5 open
+            { pad: [146.83, 220.00, 369.99], shimmer: 739.99 },   // D minor open
+            { pad: [164.81, 246.94, 392.00], shimmer: 783.99 },   // E minor open
+            { pad: [174.61, 261.63, 440.00], shimmer: 880.00 },   // F major open
+        ];
+
+        const ambientBellNotes = [523.25, 659.25, 783.99, 987.77, 1174.66, 1318.51];
+
+        // Schedule Ambient music
+        function scheduleAmbientNote(stepTime, step) {
+            const chordIndex = Math.floor(currentBar / 2) % ambientChordProgression.length;
+            const currentChord = ambientChordProgression[chordIndex];
+
+            // Pad drone - trigger on the first step of every 2 bars
+            if (step === 0 && currentBar % 2 === 0) {
+                currentChord.pad.forEach(note => {
+                    playAmbientPad(stepTime, note, (60 / musicBPM) * 8);
+                });
+            }
+
+            // Shimmer on beat 1 of each bar
+            if (step === 0) {
+                playAmbientShimmer(stepTime, currentChord.shimmer);
+            }
+
+            // Random bell tones - sparse and meditative
+            if (step === 4 && Math.random() > 0.5) {
+                const bellNote = ambientBellNotes[Math.floor(Math.random() * ambientBellNotes.length)];
+                playAmbientBell(stepTime, bellNote);
+            }
+
+            if (step === 12 && Math.random() > 0.6) {
+                const bellNote = ambientBellNotes[Math.floor(Math.random() * ambientBellNotes.length)];
+                playAmbientBell(stepTime, bellNote);
+            }
+
+            // Noise texture wash - once per 2 bars
+            if (step === 8 && currentBar % 2 === 0) {
+                playAmbientTexture(stepTime);
+            }
+        }
+
+        // =====================
+        // Jazz Music
+        // =====================
+
+        // Jazz upright bass - warm plucked tone
+        function playJazzBass(time, note, duration = 0.4) {
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            const filter = audioContext.createBiquadFilter();
+
+            osc.type = 'triangle';
+            osc.frequency.value = note;
+
+            filter.type = 'lowpass';
+            filter.frequency.value = 400;
+            filter.Q.value = 0.8;
+
+            // Plucked envelope
+            gain.gain.setValueAtTime(0, time);
+            gain.gain.linearRampToValueAtTime(0.35, time + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.15, time + 0.08);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + duration);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(masterGain);
+
+            osc.start(time);
+            osc.stop(time + duration);
+        }
+
+        // Jazz brush snare - soft swish
+        function playJazzBrush(time) {
+            const bufferSize = audioContext.sampleRate * 0.12;
+            const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+            const data = buffer.getChannelData(0);
+
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.5));
+            }
+
+            const noise = audioContext.createBufferSource();
+            noise.buffer = buffer;
+
+            const filter = audioContext.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.value = 4000;
+            filter.Q.value = 0.4;
+
+            const gain = audioContext.createGain();
+            gain.gain.setValueAtTime(0.1, time);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(masterGain);
+
+            noise.start(time);
+            noise.stop(time + 0.12);
+        }
+
+        // Jazz ride cymbal - shimmery ping
+        function playJazzRide(time) {
+            const osc = audioContext.createOscillator();
+            const osc2 = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+
+            osc.type = 'triangle';
+            osc.frequency.value = 400;
+            osc.frequency.exponentialRampToValueAtTime(300, time + 0.1);
+
+            osc2.type = 'square';
+            osc2.frequency.value = 800;
+
+            gain.gain.setValueAtTime(0.12, time);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.15);
+
+            const gain2 = audioContext.createGain();
+            gain2.gain.value = 0.03;
+
+            osc.connect(gain);
+            osc2.connect(gain2);
+            gain2.connect(gain);
+            gain.connect(masterGain);
+
+            osc.start(time);
+            osc2.start(time);
+            osc.stop(time + 0.15);
+            osc2.stop(time + 0.15);
+        }
+
+        // Jazz piano - warm mellow voicing
+        function playJazzPiano(time, notes, duration = 0.4) {
+            notes.forEach((note, i) => {
+                const osc = audioContext.createOscillator();
+                const osc2 = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                const filter = audioContext.createBiquadFilter();
+
+                osc.type = 'triangle';
+                osc.frequency.value = note;
+
+                osc2.type = 'sine';
+                osc2.frequency.value = note * 2.005;
+
+                filter.type = 'lowpass';
+                filter.frequency.value = 1200;
+                filter.Q.value = 0.5;
+
+                // Piano-like envelope with slight humanization
+                const offset = i * 0.008;
+                gain.gain.setValueAtTime(0, time + offset);
+                gain.gain.linearRampToValueAtTime(0.1, time + offset + 0.015);
+                gain.gain.exponentialRampToValueAtTime(0.04, time + offset + 0.12);
+                gain.gain.exponentialRampToValueAtTime(0.01, time + offset + duration);
+
+                osc.connect(filter);
+                osc2.connect(filter);
+                filter.connect(gain);
+                gain.connect(masterGain);
+
+                osc.start(time + offset);
+                osc2.start(time + offset);
+                osc.stop(time + offset + duration);
+                osc2.stop(time + offset + duration);
+            });
+        }
+
+        // Jazz kick - soft, round
+        function playJazzKick(time) {
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(70, time);
+            osc.frequency.exponentialRampToValueAtTime(40, time + 0.1);
+
+            gain.gain.setValueAtTime(0, time);
+            gain.gain.linearRampToValueAtTime(0.25, time + 0.005);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.15);
+
+            osc.connect(gain);
+            gain.connect(masterGain);
+
+            osc.start(time);
+            osc.stop(time + 0.15);
+        }
+
+        // Jazz chord progressions (ii-V-I with extensions)
+        const jazzChordProgression = [
+            // Dm9 - G13 - Cmaj9 - A7alt
+            { bass: [73.42, 82.41, 73.42, 65.41], chord: [293.66, 329.63, 415.30, 523.25] },   // Dm9
+            { bass: [98.00, 87.31, 98.00, 110.00], chord: [349.23, 392.00, 493.88, 659.25] },   // G13
+            { bass: [65.41, 73.42, 65.41, 55.00], chord: [329.63, 392.00, 493.88, 587.33] },    // Cmaj9
+            { bass: [110.00, 98.00, 110.00, 123.47], chord: [277.18, 349.23, 415.30, 523.25] }, // A7alt
+        ];
+
+        // Schedule Jazz music
+        function scheduleJazzNote(stepTime, step) {
+            const chordIndex = currentBar % jazzChordProgression.length;
+            const currentChord = jazzChordProgression[chordIndex];
+
+            // Ride cymbal pattern - classic jazz swing
+            // Steps: 0, 3, 4, 6, 8, 11, 12, 14 (swing feel on 16th grid)
+            if (step === 0 || step === 3 || step === 4 || step === 6 ||
+                step === 8 || step === 11 || step === 12 || step === 14) {
+                playJazzRide(stepTime);
+            }
+
+            // Brush on 2 and 4 (steps 4, 12)
+            if (step === 4 || step === 12) {
+                playJazzBrush(stepTime);
+            }
+
+            // Soft kick on 1 and 3 (steps 0, 8)
+            if (step === 0 || step === 8) {
+                playJazzKick(stepTime);
+            }
+
+            // Walking bass - quarter notes with passing tones
+            if (step % 4 === 0) {
+                const bassIndex = Math.floor(step / 4) % currentChord.bass.length;
+                playJazzBass(stepTime, currentChord.bass[bassIndex], 0.35);
+            }
+
+            // Piano comping - syncopated, sparse
+            if (step === 0 && Math.random() > 0.3) {
+                playJazzPiano(stepTime, currentChord.chord, 0.5);
+            }
+            if (step === 6 && Math.random() > 0.4) {
+                playJazzPiano(stepTime, currentChord.chord, 0.3);
+            }
+            if (step === 10 && Math.random() > 0.5) {
+                playJazzPiano(stepTime, currentChord.chord, 0.35);
+            }
+            if (step === 14 && Math.random() > 0.6) {
+                // Ghost chord anticipation
+                const nextChord = jazzChordProgression[(currentBar + 1) % jazzChordProgression.length];
+                playJazzPiano(stepTime, nextChord.chord, 0.25);
+            }
+        }
+
         // Schedule the next notes (house)
         function scheduleHouseNote(stepTime, step) {
             const sixteenthNote = (60 / musicBPM) / 4;
@@ -2001,6 +2385,10 @@
                     scheduleWiiNote(nextNoteTime, currentStep);
                 } else if (musicGenre === 'lofi') {
                     scheduleLofiNote(nextNoteTime, currentStep);
+                } else if (musicGenre === 'ambient') {
+                    scheduleAmbientNote(nextNoteTime, currentStep);
+                } else if (musicGenre === 'jazz') {
+                    scheduleJazzNote(nextNoteTime, currentStep);
                 } else {
                     scheduleHouseNote(nextNoteTime, currentStep);
                 }
@@ -2544,19 +2932,10 @@
         document.getElementById('musicGenre').addEventListener('change', (e) => {
             musicGenre = e.target.value;
             // Set recommended BPM for each genre
-            if (musicGenre === 'wii') {
-                musicBPM = 95;
-                document.getElementById('bpm').value = 95;
-                document.getElementById('bpmValue').textContent = '95';
-            } else if (musicGenre === 'lofi') {
-                musicBPM = 85;
-                document.getElementById('bpm').value = 85;
-                document.getElementById('bpmValue').textContent = '85';
-            } else {
-                musicBPM = 128;
-                document.getElementById('bpm').value = 128;
-                document.getElementById('bpmValue').textContent = '128';
-            }
+            const bpmMap = { house: 128, wii: 95, lofi: 85, ambient: 70, jazz: 110 };
+            musicBPM = bpmMap[musicGenre] || 128;
+            document.getElementById('bpm').value = musicBPM;
+            document.getElementById('bpmValue').textContent = musicBPM;
             // Reset bar counter for chord progressions
             currentBar = 0;
         });
