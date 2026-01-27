@@ -574,6 +574,7 @@
     <canvas id="network"></canvas>
 
     <button class="collapse-btn" id="collapseBtn">Hide Controls</button>
+    <button class="collapse-btn" id="fullscreenBtn" style="right: 160px;">⛶ Fullscreen</button>
 
     <!-- Statistics Panel -->
     <div class="stats-panel">
@@ -697,6 +698,21 @@
             </div>
         </div>
 
+        <div class="toggle-container">
+            <span class="toggle-label">Constellation</span>
+            <div class="toggle-switch" id="constellationToggle">
+                <div class="toggle-slider"></div>
+            </div>
+        </div>
+
+        <select class="theme-select" id="constellationSelect" style="display: none; margin-top: 10px;">
+            <option value="star">Star</option>
+            <option value="heart">Heart</option>
+            <option value="spiral">Spiral</option>
+            <option value="infinity">Infinity</option>
+            <option value="wave">Wave</option>
+        </select>
+
         <div class="game-section">
             <div class="section-divider"></div>
             <div class="section-title">🎮 SNAKE MODE</div>
@@ -730,6 +746,7 @@
             <select class="theme-select" id="musicGenre" style="margin-bottom: 10px;">
                 <option value="house">House</option>
                 <option value="wii">Wii Lounge</option>
+                <option value="lofi">Lo-fi Hip Hop</option>
             </select>
 
             <button class="music-btn" id="musicBtn">▶ PLAY</button>
@@ -977,6 +994,80 @@
         let pomodoroSessionCount = 1;
         const pomodoroCircumference = 2 * Math.PI * 70; // 439.82
 
+        // Constellation mode state
+        let constellationMode = false;
+        let constellationPattern = 'star';
+        let constellationTargets = [];
+
+        // Constellation patterns (normalized 0-1 coordinates)
+        const constellationPatterns = {
+            star: [
+                {x: 0.5, y: 0.1},   // Top
+                {x: 0.35, y: 0.4},  // Upper left
+                {x: 0.1, y: 0.4},   // Far left
+                {x: 0.3, y: 0.55},  // Lower left inner
+                {x: 0.2, y: 0.9},   // Bottom left
+                {x: 0.5, y: 0.7},   // Bottom center
+                {x: 0.8, y: 0.9},   // Bottom right
+                {x: 0.7, y: 0.55},  // Lower right inner
+                {x: 0.9, y: 0.4},   // Far right
+                {x: 0.65, y: 0.4},  // Upper right
+            ],
+            heart: [],
+            spiral: [],
+            infinity: [],
+            wave: []
+        };
+
+        // Generate heart pattern
+        for (let i = 0; i < 30; i++) {
+            const t = (i / 30) * Math.PI * 2;
+            const x = 0.5 + 0.35 * Math.pow(Math.sin(t), 3);
+            const y = 0.45 - 0.3 * (0.8125 * Math.cos(t) - 0.3125 * Math.cos(2*t) - 0.125 * Math.cos(3*t) - 0.0625 * Math.cos(4*t));
+            constellationPatterns.heart.push({x, y});
+        }
+
+        // Generate spiral pattern
+        for (let i = 0; i < 40; i++) {
+            const t = (i / 40) * Math.PI * 4;
+            const r = 0.05 + (i / 40) * 0.4;
+            const x = 0.5 + r * Math.cos(t);
+            const y = 0.5 + r * Math.sin(t);
+            constellationPatterns.spiral.push({x, y});
+        }
+
+        // Generate infinity pattern
+        for (let i = 0; i < 40; i++) {
+            const t = (i / 40) * Math.PI * 2;
+            const x = 0.5 + 0.35 * Math.cos(t) / (1 + Math.sin(t) * Math.sin(t));
+            const y = 0.5 + 0.35 * Math.sin(t) * Math.cos(t) / (1 + Math.sin(t) * Math.sin(t));
+            constellationPatterns.infinity.push({x, y});
+        }
+
+        // Generate wave pattern
+        for (let i = 0; i < 30; i++) {
+            const x = 0.1 + (i / 30) * 0.8;
+            const y = 0.5 + 0.25 * Math.sin((i / 30) * Math.PI * 3);
+            constellationPatterns.wave.push({x, y});
+        }
+
+        function generateConstellationTargets() {
+            const pattern = constellationPatterns[constellationPattern];
+            constellationTargets = [];
+            const nodesPerPoint = Math.floor(config.nodeCount / pattern.length);
+
+            for (let i = 0; i < config.nodeCount; i++) {
+                const pointIndex = Math.floor(i / nodesPerPoint) % pattern.length;
+                const point = pattern[pointIndex];
+                // Add some randomness around each target point
+                constellationTargets.push({
+                    x: (point.x + (Math.random() - 0.5) * 0.05) * canvas.width - canvas.width / 2,
+                    y: (point.y + (Math.random() - 0.5) * 0.05) * canvas.height - canvas.height / 2,
+                    z: (Math.random() - 0.5) * 200
+                });
+            }
+        }
+
         // Helper function to convert hex to RGB
         function hexToRgb(hex) {
             const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -1043,14 +1134,30 @@
                     }
                 }
 
+                // Constellation mode - attract to target positions
+                if (constellationMode && constellationTargets.length > 0) {
+                    const nodeIndex = nodes.indexOf(this);
+                    if (nodeIndex >= 0 && nodeIndex < constellationTargets.length) {
+                        const target = constellationTargets[nodeIndex];
+                        const dx = target.x - this.x;
+                        const dy = target.y - this.y;
+                        const dz = target.z - this.z;
+
+                        // Gentle attraction force
+                        this.vx += dx * 0.02;
+                        this.vy += dy * 0.02;
+                        this.vz += dz * 0.01;
+                    }
+                }
+
                 // Damping
                 this.vx *= 0.98;
                 this.vy *= 0.98;
                 this.vz *= 0.98;
 
-                // Keep minimum velocity
+                // Keep minimum velocity (only when not in constellation mode)
                 const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy + this.vz * this.vz);
-                if (speed < 0.5) {
+                if (speed < 0.5 && !constellationMode) {
                     this.vx += (Math.random() - 0.5) * 0.1;
                     this.vy += (Math.random() - 0.5) * 0.1;
                     this.vz += (Math.random() - 0.5) * 0.1;
@@ -1524,6 +1631,233 @@
             }
         }
 
+        // =====================
+        // Lo-fi Hip Hop Music
+        // =====================
+
+        // Lo-fi dusty kick - soft, muted thump
+        function playLofiKick(time) {
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            const filter = audioContext.createBiquadFilter();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(80, time);
+            osc.frequency.exponentialRampToValueAtTime(40, time + 0.15);
+
+            filter.type = 'lowpass';
+            filter.frequency.value = 200;
+
+            gain.gain.setValueAtTime(0, time);
+            gain.gain.linearRampToValueAtTime(0.4, time + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.25);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(masterGain);
+
+            osc.start(time);
+            osc.stop(time + 0.25);
+        }
+
+        // Lo-fi snare - soft, brushy with vinyl texture
+        function playLofiSnare(time) {
+            // Noise component
+            const bufferSize = audioContext.sampleRate * 0.15;
+            const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+            const data = buffer.getChannelData(0);
+
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.3));
+            }
+
+            const noise = audioContext.createBufferSource();
+            noise.buffer = buffer;
+
+            const filter = audioContext.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.value = 3000;
+            filter.Q.value = 0.8;
+
+            const gain = audioContext.createGain();
+            gain.gain.setValueAtTime(0.15, time);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.12);
+
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(masterGain);
+
+            noise.start(time);
+            noise.stop(time + 0.15);
+        }
+
+        // Lo-fi hi-hat - soft, closed
+        function playLofiHat(time) {
+            const bufferSize = audioContext.sampleRate * 0.05;
+            const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+            const data = buffer.getChannelData(0);
+
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+            }
+
+            const noise = audioContext.createBufferSource();
+            noise.buffer = buffer;
+
+            const filter = audioContext.createBiquadFilter();
+            filter.type = 'highpass';
+            filter.frequency.value = 7000;
+
+            const gain = audioContext.createGain();
+            gain.gain.setValueAtTime(0.08, time);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.04);
+
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(masterGain);
+
+            noise.start(time);
+            noise.stop(time + 0.05);
+        }
+
+        // Lo-fi Rhodes/EP piano - warm, muted keys
+        function playLofiKeys(time, note, duration = 0.5) {
+            const osc = audioContext.createOscillator();
+            const osc2 = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            const filter = audioContext.createBiquadFilter();
+
+            // Warm electric piano tone
+            osc.type = 'sine';
+            osc.frequency.value = note;
+
+            // Add slight detune for warmth
+            osc2.type = 'triangle';
+            osc2.frequency.value = note * 2.01; // Slight detune
+
+            filter.type = 'lowpass';
+            filter.frequency.value = 600; // Muted, lo-fi sound
+            filter.Q.value = 0.5;
+
+            // Soft attack, gentle decay
+            gain.gain.setValueAtTime(0, time);
+            gain.gain.linearRampToValueAtTime(0.12, time + 0.03);
+            gain.gain.exponentialRampToValueAtTime(0.06, time + 0.2);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + duration);
+
+            osc.connect(filter);
+            osc2.connect(filter);
+            filter.connect(gain);
+            gain.connect(masterGain);
+
+            osc.start(time);
+            osc2.start(time);
+            osc.stop(time + duration);
+            osc2.stop(time + duration);
+        }
+
+        // Lo-fi bass - deep, round, slightly wobbly
+        function playLofiBass(time, note) {
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            const filter = audioContext.createBiquadFilter();
+
+            osc.type = 'sine';
+            osc.frequency.value = note;
+
+            filter.type = 'lowpass';
+            filter.frequency.value = 250;
+
+            gain.gain.setValueAtTime(0, time);
+            gain.gain.linearRampToValueAtTime(0.3, time + 0.02);
+            gain.gain.setValueAtTime(0.25, time + 0.1);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + 0.5);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(masterGain);
+
+            osc.start(time);
+            osc.stop(time + 0.5);
+        }
+
+        // Vinyl crackle texture
+        function playVinylCrackle(time) {
+            if (Math.random() > 0.3) return; // Only play sometimes
+
+            const bufferSize = audioContext.sampleRate * 0.02;
+            const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+            const data = buffer.getChannelData(0);
+
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = (Math.random() > 0.97 ? (Math.random() - 0.5) * 0.3 : 0);
+            }
+
+            const noise = audioContext.createBufferSource();
+            noise.buffer = buffer;
+
+            const gain = audioContext.createGain();
+            gain.gain.value = 0.1;
+
+            noise.connect(gain);
+            gain.connect(masterGain);
+
+            noise.start(time);
+            noise.stop(time + 0.02);
+        }
+
+        // Lo-fi chord progressions (jazzy, melancholic)
+        const lofiChordProgression = [
+            // Dm7 - G7 - Cmaj7 - Am7 (ii - V - I - vi)
+            { bass: 36.71, chord: [293.66, 349.23, 440, 523.25] },      // Dm7
+            { bass: 49.00, chord: [392.00, 493.88, 587.33, 698.46] },   // G7
+            { bass: 32.70, chord: [261.63, 329.63, 392.00, 493.88] },   // Cmaj7
+            { bass: 55.00, chord: [220.00, 261.63, 329.63, 392.00] },   // Am7
+        ];
+
+        // Schedule Lo-fi music
+        function scheduleLofiNote(stepTime, step) {
+            const chordIndex = currentBar % lofiChordProgression.length;
+            const currentChord = lofiChordProgression[chordIndex];
+
+            // Dusty kick - classic boom bap pattern
+            if (step === 0 || step === 5 || step === 10) {
+                playLofiKick(stepTime);
+            }
+
+            // Snare on 4 and 12 (beats 2 and 4 but slightly lazy)
+            if (step === 4 || step === 12) {
+                playLofiSnare(stepTime + 0.02); // Slight delay for laid-back feel
+            }
+
+            // Hi-hats - sparse, not every beat
+            if (step % 4 === 2) {
+                playLofiHat(stepTime);
+            }
+
+            // Bass follows the chord root
+            if (step === 0 || step === 8) {
+                playLofiBass(stepTime, currentChord.bass);
+            }
+
+            // Rhodes chord stabs - jazzy rhythm
+            if (step === 0 || step === 6 || step === 11) {
+                // Play chord with slight humanization
+                currentChord.chord.forEach((note, i) => {
+                    playLofiKeys(stepTime + i * 0.015, note, 0.6);
+                });
+            }
+
+            // Occasional melodic embellishment
+            if (step === 3 && Math.random() > 0.6) {
+                const melodyNote = currentChord.chord[Math.floor(Math.random() * currentChord.chord.length)] * 2;
+                playLofiKeys(stepTime, melodyNote, 0.3);
+            }
+
+            // Vinyl crackle throughout
+            playVinylCrackle(stepTime);
+        }
+
         // Schedule the next notes (house)
         function scheduleHouseNote(stepTime, step) {
             const sixteenthNote = (60 / musicBPM) / 4;
@@ -1564,6 +1898,8 @@
             while (nextNoteTime < audioContext.currentTime + 0.1) {
                 if (musicGenre === 'wii') {
                     scheduleWiiNote(nextNoteTime, currentStep);
+                } else if (musicGenre === 'lofi') {
+                    scheduleLofiNote(nextNoteTime, currentStep);
                 } else {
                     scheduleHouseNote(nextNoteTime, currentStep);
                 }
@@ -2111,6 +2447,10 @@
                 musicBPM = 95;
                 document.getElementById('bpm').value = 95;
                 document.getElementById('bpmValue').textContent = '95';
+            } else if (musicGenre === 'lofi') {
+                musicBPM = 85;
+                document.getElementById('bpm').value = 85;
+                document.getElementById('bpmValue').textContent = '85';
             } else {
                 musicBPM = 128;
                 document.getElementById('bpm').value = 128;
@@ -2294,6 +2634,45 @@
             }
         });
 
+        // Constellation mode controls
+        document.getElementById('constellationToggle').addEventListener('click', (e) => {
+            constellationMode = !constellationMode;
+            e.currentTarget.classList.toggle('active');
+
+            // Show/hide pattern selector
+            document.getElementById('constellationSelect').style.display = constellationMode ? 'block' : 'none';
+
+            if (constellationMode) {
+                generateConstellationTargets();
+            }
+        });
+
+        document.getElementById('constellationSelect').addEventListener('change', (e) => {
+            constellationPattern = e.target.value;
+            if (constellationMode) {
+                generateConstellationTargets();
+            }
+        });
+
+        // Fullscreen button
+        document.getElementById('fullscreenBtn').addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log('Fullscreen request failed:', err);
+                });
+                document.getElementById('fullscreenBtn').textContent = '⛶ Exit';
+            } else {
+                document.exitFullscreen();
+                document.getElementById('fullscreenBtn').textContent = '⛶ Fullscreen';
+            }
+        });
+
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) {
+                document.getElementById('fullscreenBtn').textContent = '⛶ Fullscreen';
+            }
+        });
+
         // Click handler for explosions
         canvas.addEventListener('click', (e) => {
             createExplosion(e.clientX, e.clientY, 40);
@@ -2426,6 +2805,7 @@
             document.getElementById('controlPanel').classList.add('hidden-for-focus');
             document.querySelector('.stats-panel').classList.add('hidden-for-focus');
             document.getElementById('collapseBtn').classList.add('hidden-for-focus');
+            document.getElementById('fullscreenBtn').classList.add('hidden-for-focus');
         }
 
         function exitFocusMode() {
@@ -2433,6 +2813,7 @@
             document.getElementById('controlPanel').classList.remove('hidden-for-focus');
             document.querySelector('.stats-panel').classList.remove('hidden-for-focus');
             document.getElementById('collapseBtn').classList.remove('hidden-for-focus');
+            document.getElementById('fullscreenBtn').classList.remove('hidden-for-focus');
         }
 
         function startPomodoro() {
