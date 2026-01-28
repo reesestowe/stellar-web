@@ -843,6 +843,7 @@
                     <option value="lofi">Lo-fi Hip Hop</option>
                     <option value="ambient">Ambient</option>
                     <option value="jazz">Jazz</option>
+                    <option value="space">Space</option>
                 </select>
 
                 <button class="music-btn" id="musicBtn">▶ PLAY</button>
@@ -2343,6 +2344,211 @@
             }
         }
 
+        // =====================
+        // Space Music
+        // =====================
+
+        // Space deep sub drone - rumbling low frequency
+        function playSpaceDrone(time, note, duration = 6.0) {
+            const osc = audioContext.createOscillator();
+            const osc2 = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            const filter = audioContext.createBiquadFilter();
+
+            osc.type = 'sawtooth';
+            osc.frequency.value = note;
+
+            osc2.type = 'sine';
+            osc2.frequency.value = note * 0.5; // Sub octave
+
+            filter.type = 'lowpass';
+            filter.frequency.value = 150;
+            filter.Q.value = 2;
+            // Slow filter sweep for movement
+            filter.frequency.setValueAtTime(100, time);
+            filter.frequency.linearRampToValueAtTime(250, time + duration * 0.6);
+            filter.frequency.linearRampToValueAtTime(100, time + duration);
+
+            gain.gain.setValueAtTime(0, time);
+            gain.gain.linearRampToValueAtTime(0.12, time + 2.0);
+            gain.gain.setValueAtTime(0.12, time + duration - 2.5);
+            gain.gain.linearRampToValueAtTime(0, time + duration);
+
+            osc.connect(filter);
+            osc2.connect(filter);
+            filter.connect(gain);
+            gain.connect(masterGain);
+
+            osc.start(time);
+            osc2.start(time);
+            osc.stop(time + duration);
+            osc2.stop(time + duration);
+        }
+
+        // Space synth pad - wide, eerie chord
+        function playSpacePad(time, notes, duration = 4.0) {
+            notes.forEach((note, i) => {
+                const osc = audioContext.createOscillator();
+                const osc2 = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                const filter = audioContext.createBiquadFilter();
+
+                osc.type = 'sawtooth';
+                osc.frequency.value = note;
+
+                osc2.type = 'sawtooth';
+                osc2.frequency.value = note * 1.005; // Detune for width
+
+                filter.type = 'lowpass';
+                filter.frequency.value = 500 + i * 100;
+                filter.Q.value = 0.7;
+
+                gain.gain.setValueAtTime(0, time);
+                gain.gain.linearRampToValueAtTime(0.05, time + 1.0);
+                gain.gain.setValueAtTime(0.05, time + duration - 1.5);
+                gain.gain.linearRampToValueAtTime(0, time + duration);
+
+                osc.connect(filter);
+                osc2.connect(filter);
+                filter.connect(gain);
+                gain.connect(masterGain);
+
+                osc.start(time);
+                osc2.start(time);
+                osc.stop(time + duration);
+                osc2.stop(time + duration);
+            });
+        }
+
+        // Space blip - radar/sonar ping
+        function playSpaceBlip(time, note) {
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(note, time);
+            osc.frequency.exponentialRampToValueAtTime(note * 0.5, time + 1.5);
+
+            gain.gain.setValueAtTime(0, time);
+            gain.gain.linearRampToValueAtTime(0.08, time + 0.005);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + 1.5);
+
+            osc.connect(gain);
+            gain.connect(masterGain);
+
+            osc.start(time);
+            osc.stop(time + 1.5);
+        }
+
+        // Space whoosh - filtered noise sweep
+        function playSpaceWhoosh(time) {
+            const bufferSize = audioContext.sampleRate * 3;
+            const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+            const data = buffer.getChannelData(0);
+
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = (Math.random() * 2 - 1);
+            }
+
+            const noise = audioContext.createBufferSource();
+            noise.buffer = buffer;
+
+            const filter = audioContext.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.Q.value = 5;
+            // Sweep from low to high
+            filter.frequency.setValueAtTime(200, time);
+            filter.frequency.exponentialRampToValueAtTime(4000, time + 1.5);
+            filter.frequency.exponentialRampToValueAtTime(200, time + 3.0);
+
+            const gain = audioContext.createGain();
+            gain.gain.setValueAtTime(0, time);
+            gain.gain.linearRampToValueAtTime(0.04, time + 0.5);
+            gain.gain.setValueAtTime(0.04, time + 1.5);
+            gain.gain.linearRampToValueAtTime(0, time + 3.0);
+
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(masterGain);
+
+            noise.start(time);
+            noise.stop(time + 3.0);
+        }
+
+        // Space arpeggio - rising synth sequence
+        function playSpaceArp(time, notes) {
+            notes.forEach((note, i) => {
+                const osc = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                const filter = audioContext.createBiquadFilter();
+
+                osc.type = 'square';
+                osc.frequency.value = note;
+
+                filter.type = 'lowpass';
+                filter.frequency.value = 800;
+
+                const noteTime = time + i * 0.15;
+                gain.gain.setValueAtTime(0, noteTime);
+                gain.gain.linearRampToValueAtTime(0.06, noteTime + 0.01);
+                gain.gain.exponentialRampToValueAtTime(0.001, noteTime + 0.6);
+
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(masterGain);
+
+                osc.start(noteTime);
+                osc.stop(noteTime + 0.6);
+            });
+        }
+
+        // Space chord progressions (dark, cinematic)
+        const spaceChordProgression = [
+            { drone: 32.70, pad: [130.81, 196.00, 311.13], arp: [523.25, 622.25, 783.99, 932.33] },  // Cm
+            { drone: 29.14, pad: [116.54, 174.61, 277.18], arp: [466.16, 554.37, 698.46, 830.61] },  // Bbm
+            { drone: 34.65, pad: [138.59, 207.65, 329.63], arp: [554.37, 659.25, 830.61, 987.77] },  // Db
+            { drone: 24.50, pad: [97.99, 146.83, 233.08], arp: [392.00, 466.16, 587.33, 698.46] },   // Gm
+        ];
+
+        const spaceBlipNotes = [1318.51, 1567.98, 1760.00, 2093.00, 2349.32, 2637.02];
+
+        // Schedule Space music
+        function scheduleSpaceNote(stepTime, step) {
+            const chordIndex = Math.floor(currentBar / 2) % spaceChordProgression.length;
+            const currentChord = spaceChordProgression[chordIndex];
+
+            // Deep drone - every 4 bars
+            if (step === 0 && currentBar % 4 === 0) {
+                playSpaceDrone(stepTime, currentChord.drone, (60 / musicBPM) * 16);
+            }
+
+            // Pad chord - every 2 bars
+            if (step === 0 && currentBar % 2 === 0) {
+                playSpacePad(stepTime, currentChord.pad, (60 / musicBPM) * 8);
+            }
+
+            // Sonar blips - sparse, random
+            if (step === 0 && Math.random() > 0.6) {
+                const blipNote = spaceBlipNotes[Math.floor(Math.random() * spaceBlipNotes.length)];
+                playSpaceBlip(stepTime, blipNote);
+            }
+
+            if (step === 8 && Math.random() > 0.7) {
+                const blipNote = spaceBlipNotes[Math.floor(Math.random() * spaceBlipNotes.length)];
+                playSpaceBlip(stepTime, blipNote);
+            }
+
+            // Arpeggio sequence - once per bar, randomly
+            if (step === 4 && Math.random() > 0.5) {
+                playSpaceArp(stepTime, currentChord.arp);
+            }
+
+            // Whoosh sweep - rare, every 4 bars
+            if (step === 12 && currentBar % 4 === 2 && Math.random() > 0.4) {
+                playSpaceWhoosh(stepTime);
+            }
+        }
+
         // Schedule the next notes (house)
         function scheduleHouseNote(stepTime, step) {
             const sixteenthNote = (60 / musicBPM) / 4;
@@ -2389,6 +2595,8 @@
                     scheduleAmbientNote(nextNoteTime, currentStep);
                 } else if (musicGenre === 'jazz') {
                     scheduleJazzNote(nextNoteTime, currentStep);
+                } else if (musicGenre === 'space') {
+                    scheduleSpaceNote(nextNoteTime, currentStep);
                 } else {
                     scheduleHouseNote(nextNoteTime, currentStep);
                 }
@@ -2932,7 +3140,7 @@
         document.getElementById('musicGenre').addEventListener('change', (e) => {
             musicGenre = e.target.value;
             // Set recommended BPM for each genre
-            const bpmMap = { house: 128, wii: 95, lofi: 85, ambient: 70, jazz: 110 };
+            const bpmMap = { house: 128, wii: 95, lofi: 85, ambient: 70, jazz: 110, space: 60 };
             musicBPM = bpmMap[musicGenre] || 128;
             document.getElementById('bpm').value = musicBPM;
             document.getElementById('bpmValue').textContent = musicBPM;
