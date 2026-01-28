@@ -801,6 +801,22 @@
                     <option value="infinity">Infinity</option>
                     <option value="wave">Wave</option>
                 </select>
+
+                <div class="toggle-container">
+                    <span class="toggle-label">Shooting Stars</span>
+                    <div class="toggle-switch active" id="shootingStarsToggle">
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div>
+
+                <div class="toggle-container">
+                    <span class="toggle-label">Text Mode</span>
+                    <div class="toggle-switch" id="textModeToggle">
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div>
+
+                <input type="text" id="textModeInput" placeholder="Type text here..." style="display: none; width: 100%; padding: 8px 10px; margin-top: 10px; background: rgba(255, 255, 255, 0.1); border: 2px solid #00ffff; border-radius: 8px; color: #fff; font-family: 'Courier New', monospace; font-size: 13px; outline: none;">
             </div>
         </div>
 
@@ -909,6 +925,20 @@
                 <div class="color-picker-group">
                     <span class="color-picker-label">Edge Color 2</span>
                     <input type="color" class="color-picker" id="edgeColor2" value="#8000ff">
+                </div>
+
+                <div style="margin-top: 10px;">
+                    <label style="display: block; color: #fff; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Background Image</label>
+                    <input type="file" id="bgImageUpload" accept="image/*" style="display: none;">
+                    <button class="music-btn" id="bgImageBtn" style="background: linear-gradient(135deg, rgba(0, 255, 255, 0.2), rgba(255, 0, 255, 0.2)); border-color: #00ffff; font-size: 12px; padding: 8px;">Upload Image</button>
+                    <button class="music-btn" id="bgImageClearBtn" style="display: none; background: rgba(100, 100, 100, 0.3); border-color: #888; font-size: 12px; padding: 8px;">Clear Image</button>
+                    <div class="control-group" id="bgImageOpacityControl" style="display: none; margin-top: 10px;">
+                        <label>
+                            Image Opacity
+                            <span class="value-display" id="bgImageOpacityValue">0.3</span>
+                        </label>
+                        <input type="range" id="bgImageOpacity" min="0.05" max="1" value="0.3" step="0.05">
+                    </div>
                 </div>
             </div>
         </div>
@@ -1105,6 +1135,19 @@
         let constellationPattern = 'star';
         let constellationTargets = [];
 
+        // Shooting stars state
+        let shootingStars = [];
+        let shootingStarsEnabled = true;
+
+        // Text mode state
+        let textMode = false;
+        let textModeTargets = [];
+        let textModeText = '';
+
+        // Background image state
+        let bgImage = null;
+        let bgImageOpacity = 0.3;
+
         // Constellation patterns (normalized 0-1 coordinates)
         const constellationPatterns = {
             star: [
@@ -1170,6 +1213,118 @@
                     x: (point.x + (Math.random() - 0.5) * 0.05) * canvas.width - canvas.width / 2,
                     y: (point.y + (Math.random() - 0.5) * 0.05) * canvas.height - canvas.height / 2,
                     z: (Math.random() - 0.5) * 200
+                });
+            }
+        }
+
+        // Shooting Star class
+        class ShootingStar {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                // Start from a random edge
+                this.x = Math.random() * canvas.width;
+                this.y = -10;
+                // Angle between 20-60 degrees downward
+                const angle = (20 + Math.random() * 40) * Math.PI / 180;
+                const speed = 8 + Math.random() * 12;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.life = 1.0;
+                this.decay = 0.008 + Math.random() * 0.012;
+                this.length = 30 + Math.random() * 50;
+                this.brightness = 0.6 + Math.random() * 0.4;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life -= this.decay;
+            }
+
+            draw() {
+                if (this.life <= 0) return;
+                const alpha = this.life * this.brightness;
+                const tailX = this.x - this.vx * (this.length / 10);
+                const tailY = this.y - this.vy * (this.length / 10);
+
+                const gradient = ctx.createLinearGradient(tailX, tailY, this.x, this.y);
+                gradient.addColorStop(0, `rgba(255, 255, 255, 0)`);
+                gradient.addColorStop(1, `rgba(255, 255, 255, ${alpha})`);
+
+                ctx.strokeStyle = gradient;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(tailX, tailY);
+                ctx.lineTo(this.x, this.y);
+                ctx.stroke();
+
+                // Bright head
+                ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            isDead() {
+                return this.life <= 0 || this.x > canvas.width + 50 || this.y > canvas.height + 50;
+            }
+        }
+
+        // Spawn shooting stars randomly
+        function maybeSpawnShootingStar() {
+            if (!shootingStarsEnabled) return;
+            // ~1 shooting star every 3 seconds on average
+            if (Math.random() < 0.005) {
+                shootingStars.push(new ShootingStar());
+            }
+        }
+
+        // Generate text mode targets from a string
+        function generateTextTargets(text) {
+            textModeTargets = [];
+            if (!text) return;
+
+            // Use an offscreen canvas to render text and sample pixel positions
+            const offscreen = document.createElement('canvas');
+            const offCtx = offscreen.getContext('2d');
+            offscreen.width = canvas.width;
+            offscreen.height = canvas.height;
+
+            const fontSize = Math.min(canvas.width / (text.length * 0.7), canvas.height * 0.4);
+            offCtx.font = `bold ${fontSize}px 'Courier New', monospace`;
+            offCtx.textAlign = 'center';
+            offCtx.textBaseline = 'middle';
+            offCtx.fillStyle = '#fff';
+            offCtx.fillText(text, offscreen.width / 2, offscreen.height / 2);
+
+            // Sample pixels to find text positions
+            const imageData = offCtx.getImageData(0, 0, offscreen.width, offscreen.height);
+            const pixels = imageData.data;
+            const points = [];
+
+            // Sample every few pixels for performance
+            const step = Math.max(4, Math.floor(Math.sqrt((offscreen.width * offscreen.height) / (config.nodeCount * 3))));
+
+            for (let y = 0; y < offscreen.height; y += step) {
+                for (let x = 0; x < offscreen.width; x += step) {
+                    const i = (y * offscreen.width + x) * 4;
+                    if (pixels[i + 3] > 128) {
+                        points.push({ x: x - offscreen.width / 2, y: y - offscreen.height / 2 });
+                    }
+                }
+            }
+
+            // Assign nodes to sampled points
+            for (let i = 0; i < config.nodeCount; i++) {
+                if (points.length === 0) break;
+                const point = points[i % points.length];
+                textModeTargets.push({
+                    x: point.x + (Math.random() - 0.5) * 3,
+                    y: point.y + (Math.random() - 0.5) * 3,
+                    z: (Math.random() - 0.5) * 100
                 });
             }
         }
@@ -1256,14 +1411,29 @@
                     }
                 }
 
+                // Text mode - attract to text positions
+                if (textMode && textModeTargets.length > 0) {
+                    const nodeIndex = nodes.indexOf(this);
+                    if (nodeIndex >= 0 && nodeIndex < textModeTargets.length) {
+                        const target = textModeTargets[nodeIndex];
+                        const dx = target.x - this.x;
+                        const dy = target.y - this.y;
+                        const dz = target.z - this.z;
+
+                        this.vx += dx * 0.03;
+                        this.vy += dy * 0.03;
+                        this.vz += dz * 0.01;
+                    }
+                }
+
                 // Damping
                 this.vx *= 0.98;
                 this.vy *= 0.98;
                 this.vz *= 0.98;
 
-                // Keep minimum velocity (only when not in constellation mode)
+                // Keep minimum velocity (only when not in constellation or text mode)
                 const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy + this.vz * this.vz);
-                if (speed < 0.5 && !constellationMode) {
+                if (speed < 0.5 && !constellationMode && !textMode) {
                     this.vx += (Math.random() - 0.5) * 0.1;
                     this.vy += (Math.random() - 0.5) * 0.1;
                     this.vz += (Math.random() - 0.5) * 0.1;
@@ -2759,12 +2929,39 @@
             ctx.fillStyle = colorConfig.background;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+            // Draw background image if set
+            if (bgImage) {
+                ctx.globalAlpha = bgImageOpacity;
+                // Cover the canvas while maintaining aspect ratio
+                const imgRatio = bgImage.width / bgImage.height;
+                const canvasRatio = canvas.width / canvas.height;
+                let drawW, drawH, drawX, drawY;
+                if (canvasRatio > imgRatio) {
+                    drawW = canvas.width;
+                    drawH = canvas.width / imgRatio;
+                    drawX = 0;
+                    drawY = (canvas.height - drawH) / 2;
+                } else {
+                    drawH = canvas.height;
+                    drawW = canvas.height * imgRatio;
+                    drawX = (canvas.width - drawW) / 2;
+                    drawY = 0;
+                }
+                ctx.drawImage(bgImage, drawX, drawY, drawW, drawH);
+                ctx.globalAlpha = 1.0;
+            }
+
             // Beat reactive background flash using theme node color
             if (beatIntensity > 0.5) {
                 const flashColor = hexToRgb(colorConfig.nodeColor1);
                 ctx.fillStyle = `rgba(${flashColor.r}, ${flashColor.g}, ${flashColor.b}, ${(beatIntensity - 0.5) * 0.1})`;
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
             }
+
+            // Shooting stars
+            maybeSpawnShootingStar();
+            shootingStars.forEach(star => { star.update(); star.draw(); });
+            shootingStars = shootingStars.filter(s => !s.isDead());
 
             // Update all nodes
             nodes.forEach(node => {
@@ -3361,6 +3558,70 @@
             if (!document.fullscreenElement) {
                 document.getElementById('fullscreenBtn').textContent = '⛶ Fullscreen';
             }
+        });
+
+        // Shooting stars toggle
+        document.getElementById('shootingStarsToggle').addEventListener('click', (e) => {
+            shootingStarsEnabled = !shootingStarsEnabled;
+            e.currentTarget.classList.toggle('active');
+        });
+
+        // Text mode controls
+        document.getElementById('textModeToggle').addEventListener('click', (e) => {
+            textMode = !textMode;
+            e.currentTarget.classList.toggle('active');
+
+            document.getElementById('textModeInput').style.display = textMode ? 'block' : 'none';
+
+            if (textMode) {
+                const text = document.getElementById('textModeInput').value;
+                if (text) generateTextTargets(text);
+            } else {
+                textModeTargets = [];
+            }
+        });
+
+        document.getElementById('textModeInput').addEventListener('input', (e) => {
+            textModeText = e.target.value;
+            if (textMode && textModeText) {
+                generateTextTargets(textModeText);
+            } else {
+                textModeTargets = [];
+            }
+        });
+
+        // Background image upload
+        document.getElementById('bgImageBtn').addEventListener('click', () => {
+            document.getElementById('bgImageUpload').click();
+        });
+
+        document.getElementById('bgImageUpload').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    bgImage = img;
+                    document.getElementById('bgImageClearBtn').style.display = 'block';
+                    document.getElementById('bgImageOpacityControl').style.display = 'block';
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        document.getElementById('bgImageClearBtn').addEventListener('click', () => {
+            bgImage = null;
+            document.getElementById('bgImageUpload').value = '';
+            document.getElementById('bgImageClearBtn').style.display = 'none';
+            document.getElementById('bgImageOpacityControl').style.display = 'none';
+        });
+
+        document.getElementById('bgImageOpacity').addEventListener('input', (e) => {
+            bgImageOpacity = parseFloat(e.target.value);
+            document.getElementById('bgImageOpacityValue').textContent = bgImageOpacity.toFixed(2);
         });
 
         // Click handler for explosions
